@@ -56,7 +56,23 @@
           doctype="CRM Twilio Settings"
         />
       </div>
-
+      <div v-if="twilio?.doc?.enabled" class="flex flex-col gap-4">
+        <FormControl
+          type="checkbox"
+          v-model="twilio.doc.enable_byoc"
+          :label="__('Enable BYOC (Bring Your Own Carrier)')"
+          :description="__('Use your own carrier for Twilio calls')"
+        />
+        
+        <FormControl
+          v-if="twilio.doc.enable_byoc"
+          type="text"
+          v-model="twilio.doc.byoc_trunk_sid"
+          :label="__('BYOC Trunk SID')"
+          :description="__('Your BYOC trunk SID from Twilio Console')"
+          :placeholder="__('BY...')"
+        />
+      </div>
       <!-- Exotel -->
       <div v-if="isManager()" class="flex flex-col justify-between gap-4">
         <span class="text-base font-semibold text-ink-gray-8">
