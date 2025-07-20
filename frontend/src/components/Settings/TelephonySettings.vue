@@ -288,13 +288,20 @@ function update() {
 }
 
 async function updateMedium() {
-  await call('crm.integrations.api.set_default_calling_medium', {
-    medium: defaultCallingMedium.value,
-  })
-  mediumChanged.value = false
-  error.value = ''
-  toast.success(__('Default calling medium updated successfully'))
+  try {
+    await call('crm.integrations.api.set_default_calling_medium', {
+      medium: defaultCallingMedium.value,
+    })
+    mediumChanged.value = false
+    error.value = ''
+    toast.success(__('Default calling medium updated successfully'))
+  } catch (err) {
+    console.error('Error setting calling medium:', err)
+    error.value = err.message || __('Failed to set default calling medium')
+    toast.error(error.value)
+  }
 }
+
 
 const error = ref('')
 

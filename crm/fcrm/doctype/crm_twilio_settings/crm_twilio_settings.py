@@ -5,6 +5,7 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 from twilio.rest import Client
+from twilio.base.exceptions import TwilioRestException
 
 
 class CRMTwilioSettings(Document):
@@ -13,24 +14,6 @@ class CRMTwilioSettings(Document):
 
     def validate(self):
         self.validate_twilio_account()
-        if self.enable_byoc:
-            self.validate_byoc_trunk()
-
-    def validate_byoc_trunk(self):
-        """Validate BYOC trunk SID format and accessibility"""
-        if not self.byoc_trunk_sid:
-            frappe.throw(_("BYOC Trunk SID is required when BYOC is enabled"))
-
-        if not self.byoc_trunk_sid.startswith('BY'):
-            frappe.throw(_("Invalid BYOC Trunk SID format"))
-
-        # Optional: Test trunk accessibility
-        try:
-            twilio = Client(self.account_sid, self.get_password("auth_token"))
-            # Test if trunk is accessible
-            trunk = twilio.trunking.v1.trunks(self.byoc_trunk_sid).fetch()
-        except Exception:
-            frappe.throw(_("Invalid or inaccessible BYOC Trunk SID"))
 
     def on_update(self):
         # Single doctype records are created in DB at time of installation and those field values are set as null.
@@ -41,6 +24,10 @@ class CRMTwilioSettings(Document):
         twilio = Client(self.account_sid, self.get_password("auth_token"))
         self.set_api_credentials(twilio)
         self.set_application_credentials(twilio)
+
+        if self.enable_byoc:
+            self.validate_byoc_trunk()
+
         self.reload()
 
     def validate_twilio_account(self):
@@ -50,6 +37,36 @@ class CRMTwilioSettings(Document):
             return twilio
         except Exception:
             frappe.throw(_("Invalid Account SID or Auth Token."))
+
+    def validate_byoc_trunk(self):
+        """Validate BYOC trunk SID format and accessibility (correct API + clean logging)"""
+        if not self.enable_byoc:
+            return  # BYOC is disabled, skip check
+
+        sid = self.byoc_trunk_sid
+        if not sid or not sid.startswith("BY"):
+            frappe.throw(
+                _("Please provide a valid BYOC Trunk SID (starts with 'BY')"))
+
+        auth_token = self.get_password("auth_token")
+        if not auth_token:
+            frappe.throw(_("Auth Token is missing or not saved yet"))
+
+        try:
+            client = Client(self.account_sid, auth_token)
+            trunk = client.voice.v1.byoc_trunks(sid).fetch()
+
+            # Optional success log (can be removed in production)
+            frappe.logger().info(
+                f"[Twilio BYOC] Trunk '{trunk.friendly_name}' validated successfully (SID: {trunk.sid})")
+
+        except TwilioRestException as e:
+            short_title = f"[Twilio BYOC] Error accessing BYOC SID {sid[:10]}...: {e.status}"
+            long_body = f"Twilio API Error: {e.msg}\nStatus: {e.status}\nCode: {e.code}\nMore Info: {e.more_info}"
+
+            frappe.log_error(title=short_title, message=long_body)
+            frappe.throw(
+                _("Invalid or inaccessible BYOC Trunk SID. Please verify it in your Twilio account."))
 
     def set_api_credentials(self, twilio):
         """Generate Twilio API credentials if not exist and update them."""
