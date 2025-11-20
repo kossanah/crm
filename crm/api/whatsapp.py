@@ -5,6 +5,7 @@ from frappe import _
 
 from crm.api.doc import get_assigned_users
 from crm.fcrm.doctype.crm_notification.crm_notification import notify_user
+from crm.integrations.api import get_contact_lead_or_deal_from_number
 
 
 def before_insert(doc, method):
@@ -12,7 +13,8 @@ def before_insert(doc, method):
     if doc.type == "Incoming" and doc.get("from"):
         # Only set if not already set
         if not doc.reference_doctype or not doc.reference_name:
-            name, doctype = get_lead_or_deal_from_number(doc.get("from"))
+            name, doctype = get_contact_lead_or_deal_from_number(
+                doc.get("from"))
             if name and doctype:
                 doc.reference_doctype = doctype
                 doc.reference_name = name
@@ -52,27 +54,27 @@ def notify_agent(doc):
             doctype = doctype[4:].lower()
         notification_text = f"""
             <div class="mb-2 leading-5 text-ink-gray-5">
-                <span class="font-medium text-ink-gray-9">{ _('You') }</span>
-                <span>{ _('received a whatsapp message in {0}').format(doctype) }</span>
-                <span class="font-medium text-ink-gray-9">{ doc.reference_name }</span>
+                <span class="font-medium text-ink-gray-9">{_("You")}</span>
+                <span>{_("received a whatsapp message in {0}").format(doctype)}</span>
+                <span class="font-medium text-ink-gray-9">{doc.reference_name}</span>
             </div>
         """
-        assigned_users = get_assigned_users(
-            doc.reference_doctype, doc.reference_name)
-        for user in assigned_users:
-            notify_user(
-                {
-                    "owner": doc.owner,
-                    "assigned_to": user,
-                    "notification_type": "WhatsApp",
-                    "message": doc.message,
-                    "notification_text": notification_text,
-                    "reference_doctype": "WhatsApp Message",
-                    "reference_docname": doc.name,
-                    "redirect_to_doctype": doc.reference_doctype,
-                    "redirect_to_docname": doc.reference_name,
-                }
-            )
+    assigned_users = get_assigned_users(
+        doc.reference_doctype, doc.reference_name)
+    for user in assigned_users:
+        notify_user(
+            {
+                "owner": doc.owner,
+                "assigned_to": user,
+                "notification_type": "WhatsApp",
+                "message": doc.message,
+                "notification_text": notification_text,
+                "reference_doctype": "WhatsApp Message",
+                "reference_docname": doc.name,
+                "redirect_to_doctype": doc.reference_doctype,
+                "redirect_to_docname": doc.reference_name,
+            }
+        )
 
 
 def get_lead_or_deal_from_number(number):
@@ -338,17 +340,15 @@ def react_on_whatsapp_message(emoji, reply_to_name):
     doc = frappe.new_doc("WhatsApp Message")
     doc.update(
         {
-            "type": "Outgoing",
             "reference_doctype": reply_to_doc.reference_doctype,
-                    "reference_name": reply_to_doc.reference_name,
-                    "message": emoji,
-                    "to": to,
-                    "reply_to_message_id": reply_to_doc.message_id,
-                    "content_type": "reaction",
+            "reference_name": reply_to_doc.reference_name,
+            "message": emoji,
+            "to": to,
+            "reply_to_message_id": reply_to_doc.message_id,
+            "content_type": "reaction",
         }
     )
     doc.insert(ignore_permissions=True)
-    frappe.db.commit()
     return doc.name
 
 

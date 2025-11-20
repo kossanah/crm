@@ -69,15 +69,13 @@
                   <FeatherIcon name="link" class="h-4 w-4" />
                 </Button>
                 <Button
+                  v-if="canDelete"
                   :label="__('Delete')"
                   theme="red"
                   size="sm"
+                  iconLeft="trash-2"
                   @click="deleteOrganization"
-                >
-                  <template #prefix>
-                    <FeatherIcon name="trash-2" class="h-4 w-4" />
-                  </template>
-                </Button>
+                />
               </div>
               <ErrorMessage :message="__(error)" />
             </div>
@@ -165,7 +163,12 @@ import { globalStore } from '@/stores/global'
 import { usersStore } from '@/stores/users'
 import { statusesStore } from '@/stores/statuses'
 import { getView } from '@/utils/view'
-import { formatDate, timeAgo, validateIsImageFile } from '@/utils'
+import {
+  formatDate,
+  timeAgo,
+  validateIsImageFile,
+  openWebsite as openExternalWebsite,
+} from '@/utils'
 import {
   Breadcrumbs,
   Avatar,
@@ -199,10 +202,12 @@ const { doctypeMeta } = getMeta('CRM Organization')
 const route = useRoute()
 const router = useRouter()
 
-const { document: organization } = useDocument(
+const { document: organization, permissions } = useDocument(
   'CRM Organization',
   props.organizationId,
 )
+
+const canDelete = computed(() => permissions.data?.permissions?.delete || false)
 
 const breadcrumbs = computed(() => {
   let items = [{ label: __('Organizations'), route: { name: 'Organizations' } }]
@@ -281,8 +286,12 @@ async function deleteOrganization() {
 }
 
 function openWebsite() {
-  if (!organization.doc.website) toast.error(__('No website found'))
-  else window.open(organization.doc.website, '_blank')
+  if (!organization.doc.website) {
+    toast.error(__('No website found'))
+    return
+  }
+
+  openExternalWebsite(organization.doc.website)
 }
 
 const sections = createResource({

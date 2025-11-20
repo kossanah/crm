@@ -72,13 +72,11 @@
                   v-if="callEnabled && contact.doc.mobile_no"
                   :label="__('Make Call')"
                   size="sm"
+                  :iconLeft="PhoneIcon"
                   @click="callEnabled && makeCall(contact.doc.mobile_no)"
-                >
-                  <template #prefix>
-                    <PhoneIcon class="h-4 w-4" />
-                  </template>
-                </Button>
+                />
                 <Button
+                  v-if="canDelete"
                   :label="__('Delete')"
                   theme="red"
                   size="sm"
@@ -209,7 +207,9 @@ const props = defineProps({
 const route = useRoute()
 const router = useRouter()
 
-const { document: contact } = useDocument('Contact', props.contactId)
+const { document: contact, permissions } = useDocument('Contact', props.contactId)
+
+const canDelete = computed(() => permissions.data?.permissions?.delete || false)
 
 const breadcrumbs = computed(() => {
   let items = [{ label: __('Contacts'), route: { name: 'Contacts' } }]
