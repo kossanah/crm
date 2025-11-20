@@ -575,6 +575,8 @@ onMounted(() => {
       data.reference_name === doc.value.data.name
     ) {
       whatsappMessages.reload()
+      // Scroll to bottom after reload completes
+      nextTick(() => scroll())
     }
   })
 

@@ -13,13 +13,13 @@ app_icon_route = "/crm"
 
 # required_apps = []
 add_to_apps_screen = [
-	{
-		"name": "crm",
-		"logo": "/assets/crm/images/logo.svg",
-		"title": "CRM",
-		"route": "/crm",
-		"has_permission": "crm.api.check_app_permission",
-	}
+    {
+        "name": "crm",
+        "logo": "/assets/crm/images/logo.svg",
+                "title": "CRM",
+                "route": "/crm",
+                "has_permission": "crm.api.check_app_permission",
+    }
 ]
 
 # Includes in <head>
@@ -61,7 +61,7 @@ add_to_apps_screen = [
 # }
 
 website_route_rules = [
-	{"from_route": "/crm/<path:app_path>", "to_route": "crm"},
+    {"from_route": "/crm/<path:app_path>", "to_route": "crm"},
 ]
 
 # Generators
@@ -130,8 +130,8 @@ before_uninstall = "crm.uninstall.before_uninstall"
 # Override standard doctype classes
 
 override_doctype_class = {
-	"Contact": "crm.overrides.contact.CustomContact",
-	"Email Template": "crm.overrides.email_template.CustomEmailTemplate",
+    "Contact": "crm.overrides.contact.CustomContact",
+    "Email Template": "crm.overrides.email_template.CustomEmailTemplate",
 }
 
 # Document Events
@@ -139,29 +139,30 @@ override_doctype_class = {
 # Hook on document methods and events
 
 doc_events = {
-	"Contact": {
-		"validate": ["crm.api.contact.validate"],
-	},
-	"ToDo": {
-		"after_insert": ["crm.api.todo.after_insert"],
-		"on_update": ["crm.api.todo.on_update"],
-	},
-	"Comment": {
-		"on_update": ["crm.api.comment.on_update"],
-	},
-	"WhatsApp Message": {
-		"validate": ["crm.api.whatsapp.validate"],
-		"on_update": ["crm.api.whatsapp.on_update"],
-	},
-	"CRM Deal": {
-		"on_update": [
-			"crm.fcrm.doctype.erpnext_crm_settings.erpnext_crm_settings.create_customer_in_erpnext"
-		],
-	},
-	"User": {
-		"before_validate": ["crm.api.demo.validate_user"],
-		"validate_reset_password": ["crm.api.demo.validate_reset_password"],
-	},
+    "Contact": {
+        "validate": ["crm.api.contact.validate"],
+    },
+    "ToDo": {
+        "after_insert": ["crm.api.todo.after_insert"],
+        "on_update": ["crm.api.todo.on_update"],
+    },
+    "Comment": {
+        "on_update": ["crm.api.comment.on_update"],
+    },
+    "WhatsApp Message": {
+        "before_insert": ["crm.api.whatsapp.before_insert"],
+        "after_insert": ["crm.api.whatsapp.after_insert"],
+        "on_update": ["crm.api.whatsapp.on_update"],
+    },
+    "CRM Deal": {
+        "on_update": [
+            "crm.fcrm.doctype.erpnext_crm_settings.erpnext_crm_settings.create_customer_in_erpnext"
+        ],
+    },
+    "User": {
+        "before_validate": ["crm.api.demo.validate_user"],
+        "validate_reset_password": ["crm.api.demo.validate_reset_password"],
+    },
 }
 
 # Scheduled Tasks
@@ -257,56 +258,56 @@ doc_events = {
 after_migrate = ["crm.fcrm.doctype.fcrm_settings.fcrm_settings.after_migrate"]
 
 standard_dropdown_items = [
-	{
-		"name1": "app_selector",
-		"label": "Apps",
-		"type": "Route",
-		"route": "#",
-		"is_standard": 1,
-	},
-	{
-		"name1": "toggle_theme",
-		"label": "Toggle theme",
-		"type": "Route",
-		"icon": "moon",
-		"route": "#",
-		"is_standard": 1,
-	},
-	{
-		"name1": "settings",
-		"label": "Settings",
-		"type": "Route",
-		"icon": "settings",
-		"route": "#",
-		"is_standard": 1,
-	},
-	{
-		"name1": "login_to_fc",
-		"label": "Login to Frappe Cloud",
-		"type": "Route",
-		"route": "#",
-		"is_standard": 1,
-	},
-	{
-		"name1": "about",
-		"label": "About",
-		"type": "Route",
-		"icon": "info",
-		"route": "#",
-		"is_standard": 1,
-	},
-	{
-		"name1": "separator",
-		"label": "",
-		"type": "Separator",
-		"is_standard": 1,
-	},
-	{
-		"name1": "logout",
-		"label": "Log out",
-		"type": "Route",
-		"icon": "log-out",
-		"route": "#",
-		"is_standard": 1,
-	},
+    {
+        "name1": "app_selector",
+        "label": "Apps",
+        "type": "Route",
+                "route": "#",
+                "is_standard": 1,
+    },
+    {
+        "name1": "toggle_theme",
+        "label": "Toggle theme",
+        "type": "Route",
+                "icon": "moon",
+                "route": "#",
+                "is_standard": 1,
+    },
+    {
+        "name1": "settings",
+        "label": "Settings",
+        "type": "Route",
+                "icon": "settings",
+                "route": "#",
+                "is_standard": 1,
+    },
+    {
+        "name1": "login_to_fc",
+        "label": "Login to Frappe Cloud",
+        "type": "Route",
+                "route": "#",
+                "is_standard": 1,
+    },
+    {
+        "name1": "about",
+        "label": "About",
+        "type": "Route",
+                "icon": "info",
+                "route": "#",
+                "is_standard": 1,
+    },
+    {
+        "name1": "separator",
+        "label": "",
+        "type": "Separator",
+                "is_standard": 1,
+    },
+    {
+        "name1": "logout",
+        "label": "Log out",
+        "type": "Route",
+                "icon": "log-out",
+                "route": "#",
+                "is_standard": 1,
+    },
 ]

@@ -74,6 +74,8 @@ const props = defineProps({
   doctype: String,
 })
 
+const emit = defineEmits(['scroll'])
+
 const doc = defineModel()
 const whatsapp = defineModel('whatsapp')
 const reply = defineModel('reply')
@@ -123,6 +125,17 @@ async function sendWhatsAppMessage() {
     url: 'crm.api.whatsapp.create_whatsapp_message',
     params: args,
     auto: true,
+    onSuccess: () => {
+      // Small delay to ensure backend has processed the message
+      setTimeout(() => {
+        // Reload the whatsapp messages list
+        if (whatsapp.value && whatsapp.value.reload) {
+          whatsapp.value.reload()
+        }
+        // Emit scroll event to scroll to bottom
+        nextTick(() => emit('scroll'))
+      }, 100)
+    }
   })
 }
 
