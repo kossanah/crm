@@ -160,8 +160,8 @@ doc_events = {
         ],
     },
     "User": {
-        "before_validate": ["crm.api.demo.validate_user"],
-        "validate_reset_password": ["crm.api.demo.validate_reset_password"],
+        "before_validate": ["crm.api.live_demo.validate_user"],
+        "validate_reset_password": ["crm.api.live_demo.validate_reset_password"],
     },
 }
 
