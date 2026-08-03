@@ -12,6 +12,11 @@
         :isGroup="isGroupCondition(condition[0])"
         :conjunction="getConjunction()"
         :disableAddCondition="props.disableAddCondition"
+        :doctype="props.doctype"
+        @remove="removeCondition(condition)"
+        @unGroupConditions="unGroupConditions(condition)"
+        @toggleConjunction="toggleConjunction"
+        @turnIntoGroup="turnIntoGroup(condition)"
       />
     </template>
     <div v-if="props.isChild" class="flex">
@@ -19,7 +24,7 @@
         <Button
           :disabled="props.disableAddCondition"
           :label="__('Add Condition')"
-          icon-left="plus"
+          icon-left="lucide-plus"
           :icon-right="open ? 'chevron-up' : 'chevron-down'"
         />
       </Dropdown>

@@ -14,7 +14,7 @@
           field.reqd ||
           (field.mandatory_depends_on && field.mandatory_via_depends_on)
         "
-        class="text-ink-red-2"
+        class="text-ink-red-5"
         >*</span
       >
     </div>
@@ -86,7 +86,7 @@
         "
       >
         {{ __(field.label) }}
-        <span v-if="field.mandatory" class="text-ink-red-3">*</span>
+        <span v-if="field.mandatory" class="text-ink-red-6">*</span>
       </label>
     </div>
     <div
@@ -321,7 +321,10 @@ import {
 } from '@/utils'
 import { flt, formatNumber, formatCurrency } from '@/utils/numberFormat.js'
 import { getMeta } from '@/stores/meta'
-import { parseLinkFilters } from '@/utils/fieldTransforms'
+import {
+  parseLinkFilters,
+  applyStateFieldOptions,
+} from '@/utils/fieldTransforms'
 import { usersStore } from '@/stores/users'
 import { useDocument } from '@/data/document'
 import {
@@ -339,6 +342,7 @@ const props = defineProps({
 
 const data = inject('data')
 const doctype = inject('doctype')
+const docname = inject('docname', null)
 const preview = inject('preview')
 const isGridRow = inject('isGridRow')
 
@@ -387,13 +391,18 @@ if (standaloneContext) {
     computed(() => standaloneContext?.fieldPropertyOverrides || {}),
   )
 } else if (!isGridRow) {
+  // Bind to the document by its authoritative name (injected from FieldLayout),
+  // falling back to data.name. Using data.name alone breaks the first edit of a
+  // freshly-loaded doc: name is still empty, so changes write to the wrong
+  // (new-document) cache slot and the first save serializes the pristine doc.
+  const resolvedName = docname != null ? docname.value : data.value.name
   const {
     triggerOnChange: trigger,
     triggerButton: triggerBtn,
     triggerOnRowAdd,
     triggerOnRowRemove,
     document: doc,
-  } = useDocument(doctype, data.value.name)
+  } = useDocument(doctype, resolvedName)
   triggerOnChange = trigger
   triggerButton = triggerBtn
   formDocument.value = doc
@@ -452,6 +461,14 @@ const field = computed(() => {
   if (overrides) {
     Object.assign(field, overrides)
   }
+
+  // ── Country-driven state dropdown (e.g. India Compliance installed) ──
+  field = applyStateFieldOptions(
+    field,
+    data.value,
+    doctype,
+    window.state_options,
+  )
 
   if (field.fieldtype == 'Select' && typeof field.options === 'string') {
     field.options = field.options.split('\n').map((option) => {

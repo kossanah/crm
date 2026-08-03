@@ -23,7 +23,7 @@
           <Button
             variant="subtle"
             class="w-max"
-            icon-right="refresh-cw"
+            icon-right="lucide-refresh-cw"
             :disabled="props.itemIndex > 2"
             :label="conjunction"
             @click="toggleConjunction"
@@ -32,11 +32,12 @@
       </div>
       <div v-if="!props.isGroup" class="flex items-center gap-2 w-full">
         <div id="fieldname" class="w-full">
-          <Autocomplete
-            :options="filterableFields.data"
-            :modelValue="condition[0]"
+          <Combobox
+            trigger="button"
+            :options="filterableFields.data || []"
+            :model-value="condition[0]"
             :placeholder="__('Field')"
-            @update:modelValue="updateField"
+            @update:selected-option="updateField"
           />
         </div>
         <div id="operator">
@@ -80,6 +81,7 @@
         :isChild="true"
         :level="props.level"
         :disableAddCondition="props.disableAddCondition"
+        :doctype="props.doctype"
       />
       <Button
         v-if="props.isGroup && (props.level == 2 || props.level == 4)"
@@ -90,20 +92,18 @@
     </div>
     <div :class="'w-max'">
       <Dropdown placement="right" :options="dropdownOptions">
-        <Button variant="ghost" icon="more-horizontal" />
+        <Button variant="ghost" icon="lucide-more-horizontal" />
       </Dropdown>
     </div>
   </div>
-  <Dialog
-    v-model="show"
-    :options="{ size: '3xl', title: __('Nested Conditions') }"
-  >
-    <template #body-content>
+  <Dialog v-model:open="show" :size="'3xl'" :title="__('Nested Conditions')">
+    <template #default>
       <CFConditions
         :conditions="condition"
         :isChild="true"
         :level="props.level"
         :disableAddCondition="props.disableAddCondition"
+        :doctype="props.doctype"
       />
     </template>
   </Dialog>
@@ -115,7 +115,7 @@ import UnGroupIcon from '~icons/lucide/ungroup'
 import CFConditions from './CFConditions.vue'
 import Link from '@/components/Controls/Link.vue'
 import {
-  Autocomplete,
+  Combobox,
   Button,
   DatePicker,
   DateRangePicker,
@@ -144,6 +144,7 @@ const props = defineProps({
   isGroup: { type: Boolean, default: false },
   conjunction: { type: String, default: 'and' },
   disableAddCondition: { type: Boolean, default: false },
+  doctype: { type: String, default: '' },
 })
 
 const condition = reactive(props.condition)

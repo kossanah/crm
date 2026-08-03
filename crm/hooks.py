@@ -44,7 +44,10 @@ add_to_apps_screen = [
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
-# doctype_js = {"doctype" : "public/js/doctype.js"}
+doctype_js = {
+	"Quotation": "public/js/erpnext_quotation_prefill.js",
+	"Sales Order": "public/js/erpnext_sales_order_customer.js",
+}
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -117,13 +120,15 @@ before_uninstall = "crm.uninstall.before_uninstall"
 # -----------
 # Permissions evaluated in scripted ways
 
-# permission_query_conditions = {
-# "Event": "frappe.desk.doctype.event.event.get_permission_query_conditions",
-# }
-#
-# has_permission = {
-# "Event": "frappe.desk.doctype.event.event.has_permission",
-# }
+permission_query_conditions = {
+	"CRM Lead": "crm.permissions.org_hierarchy.get_lead_permission_query_conditions",
+	"CRM Deal": "crm.permissions.org_hierarchy.get_deal_permission_query_conditions",
+}
+
+has_permission = {
+	"CRM Lead": "crm.permissions.org_hierarchy.has_lead_permission",
+	"CRM Deal": "crm.permissions.org_hierarchy.has_deal_permission",
+}
 
 # DocType Class
 # ---------------
@@ -139,52 +144,79 @@ override_doctype_class = {
 # Hook on document methods and events
 
 doc_events = {
-    "Contact": {
-        "validate": ["crm.api.contact.validate"],
-    },
-    "ToDo": {
-        "after_insert": ["crm.api.todo.after_insert"],
-        "on_update": ["crm.api.todo.on_update"],
-    },
-    "Comment": {
-        "on_update": ["crm.api.comment.on_update"],
-    },
-    "WhatsApp Message": {
-        "before_insert": ["crm.api.whatsapp.before_insert"],
-        "after_insert": ["crm.api.whatsapp.after_insert"],
-        "on_update": ["crm.api.whatsapp.on_update"],
-    },
-    "CRM Deal": {
-        "on_update": [
-            "crm.fcrm.doctype.erpnext_crm_settings.erpnext_crm_settings.create_customer_in_erpnext"
-        ],
-    },
-    "User": {
-        "before_validate": ["crm.api.live_demo.validate_user"],
-        "validate_reset_password": ["crm.api.live_demo.validate_reset_password"],
-    },
+	"Contact": {
+		"validate": ["crm.api.contact.validate"],
+	},
+	"ToDo": {
+		"after_insert": ["crm.api.todo.after_insert"],
+		"on_update": ["crm.api.todo.on_update"],
+	},
+	"Communication": {
+		"after_insert": ["crm.utils.on_communication_insert"],
+		"on_update": ["crm.utils.on_communication_update"],
+	},
+	"Comment": {
+		"after_insert": ["crm.utils.on_comment_insert"],
+		"on_update": ["crm.api.comment.on_update"],
+	},
+	"WhatsApp Message": {
+		"before_insert": ["crm.api.whatsapp.before_insert"],
+		"after_insert": ["crm.api.whatsapp.after_insert"],
+		"validate": ["crm.api.whatsapp.validate"],
+		"on_update": ["crm.api.whatsapp.on_update"],
+	},
+	"CRM Deal": {
+		"on_update": [
+			"crm.fcrm.doctype.erpnext_crm_settings.erpnext_crm_settings.create_customer_in_erpnext"
+		],
+	},
+	"Sales Order": {
+		"before_validate": [
+			"crm.fcrm.doctype.erpnext_crm_settings.erpnext_crm_settings.create_customer_on_sales_order"
+		],
+	},
+	"Item": {
+		"after_insert": ["crm.integrations.erpnext.item.after_insert"],
+		"on_update": ["crm.integrations.erpnext.item.on_update"],
+		"before_rename": ["crm.integrations.erpnext.item.before_rename"],
+		"after_rename": ["crm.integrations.erpnext.item.after_rename"],
+		"on_trash": ["crm.integrations.erpnext.item.on_trash"],
+	},
+	"User Permission": {
+		"before_validate": ["crm.integrations.erpnext.user_permission.before_validate"],
+		"after_insert": ["crm.integrations.erpnext.user_permission.after_insert"],
+		"on_update": ["crm.integrations.erpnext.user_permission.on_update"],
+		"on_trash": ["crm.integrations.erpnext.user_permission.on_trash"],
+	},
+	"DocShare": {
+		"before_validate": ["crm.integrations.erpnext.doc_share.before_validate"],
+		"after_insert": ["crm.integrations.erpnext.doc_share.after_insert"],
+		"on_update": ["crm.integrations.erpnext.doc_share.on_update"],
+		"on_trash": ["crm.integrations.erpnext.doc_share.on_trash"],
+	},
+	"User": {
+		"before_validate": ["crm.api.live_demo.validate_user"],
+		"validate_reset_password": ["crm.api.live_demo.validate_reset_password"],
+	},
 }
 
 # Scheduled Tasks
 # ---------------
 
-# scheduler_events = {
-# "all": [
-# "crm.tasks.all"
-# ],
-# "daily": [
-# "crm.tasks.daily"
-# ],
-# "hourly": [
-# "crm.tasks.hourly"
-# ],
-# "weekly": [
-# "crm.tasks.weekly"
-# ],
-# "monthly": [
-# "crm.tasks.monthly"
-# ],
-# }
+scheduler_events = {
+	"daily": [
+		"crm.fcrm.doctype.crm_view_settings.crm_view_settings.clear_old_versions",
+		"crm.telemetry.capture_feature_state",
+	],
+	"daily_long": ["crm.lead_syncing.background_sync.sync_leads_from_sources_daily"],
+	"hourly_long": ["crm.lead_syncing.background_sync.sync_leads_from_sources_hourly"],
+	"monthly_long": ["crm.lead_syncing.background_sync.sync_leads_from_sources_monthly"],
+	"cron": {
+		"*/5 * * * *": ["crm.lead_syncing.background_sync.sync_leads_from_sources_5_minutes"],
+		"*/10 * * * *": ["crm.lead_syncing.background_sync.sync_leads_from_sources_10_minutes"],
+		"*/15 * * * *": ["crm.lead_syncing.background_sync.sync_leads_from_sources_15_minutes"],
+	},
+}
 
 # Testing
 # -------
@@ -255,7 +287,11 @@ doc_events = {
 # "crm.auth.validate"
 # ]
 
-after_migrate = ["crm.fcrm.doctype.fcrm_settings.fcrm_settings.after_migrate"]
+after_migrate = [
+	"crm.fcrm.doctype.fcrm_settings.fcrm_settings.after_migrate",
+	"crm.api.whatsapp.add_roles",
+	"crm.install.add_default_scripts",
+]
 
 standard_dropdown_items = [
     {
