@@ -48,6 +48,7 @@
             class="w-44 p-1"
             :options="[
               { label: __(''), value: '' },
+              { label: __('FreePBX'), value: 'FreePBX' },
               { label: __('Twilio'), value: 'Twilio' },
               { label: __('Exotel'), value: 'Exotel' },
             ]"
@@ -58,6 +59,31 @@
             icon="lucide-x"
             :tooltip="__('Clear')"
             @click="telephonyAgent.doc.default_medium = ''"
+          />
+        </div>
+      </div>
+      <div
+        v-if="isEnabled('freepbx')"
+        class="h-px border-t mx-2 border-outline-elevation-2"
+      />
+      <div
+        v-if="isEnabled('freepbx')"
+        class="flex items-center justify-between gap-8 py-3 pl-2 pr-1"
+      >
+        <div class="flex flex-col">
+          <div class="text-p-base-medium text-ink-gray-7 truncate">
+            {{ __('FreePBX Extension') }}
+          </div>
+          <div class="text-p-sm text-ink-gray-5">
+            {{ __('Set your agent SIP extension on FreePBX (e.g., 1001)') }}
+          </div>
+        </div>
+        <div>
+          <FormControl
+            v-model="telephonyAgent.doc.freepbx_extension"
+            class="flex-1 truncate w-44 p-1"
+            :placeholder="__('Enter FreePBX Extension')"
+            placement="bottom-end"
           />
         </div>
       </div>
@@ -143,6 +169,33 @@
       >
         {{ __('Integrations') }}
       </div>
+
+      <div
+        v-if="isManager()"
+        class="flex items-center justify-between py-3 px-2"
+      >
+        <div class="flex flex-col gap-1">
+          <span class="text-base-medium text-ink-gray-8">
+            {{ __('Bridge Telephony (FreePBX)') }}
+          </span>
+          <span class="text-p-sm text-ink-gray-6">
+            {{
+              __('Configure FreePBX / Asterisk AMI and Telephony Integration Settings')
+            }}
+          </span>
+        </div>
+        <Button
+          :label="
+            isEnabled('freepbx') ? __('Update Configuration') : __('Configure')
+          "
+          @click="emit('updateStep', 'bridge-telephony-settings')"
+        />
+      </div>
+
+      <div
+        v-if="isManager()"
+        class="h-px border-t mx-2 border-outline-elevation-2"
+      />
 
       <div
         v-if="isManager()"

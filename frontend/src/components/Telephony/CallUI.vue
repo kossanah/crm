@@ -1,6 +1,19 @@
 <template>
   <TwilioCallUI ref="twilio" />
   <ExotelCallUI ref="exotel" />
+  <FreePBXCallUI ref="freepbx" />
+
+  <!-- Quick Make Call icon button displayed in header bar when calling is enabled -->
+  <Button
+    v-if="callEnabled"
+    variant="ghost"
+    class="size-7 flex items-center justify-center text-ink-gray-7 hover:text-ink-gray-9 cursor-pointer rounded"
+    :tooltip="__('Make a Call')"
+    @click="openCallDialog"
+  >
+    <PhoneIcon class="size-4" />
+  </Button>
+
   <Dialog
     v-model:open="show"
     :title="__('Make Call')"
@@ -18,12 +31,13 @@
           v-model="mobileNumber"
           type="text"
           :label="__('Mobile Number')"
+          :placeholder="__('Enter phone number or extension (e.g. 08031234567, 1002)')"
         />
         <FormControl
           v-model="callMedium"
           type="select"
           :label="__('Calling Medium')"
-          :options="['Twilio', 'Exotel']"
+          :options="callingMediumOptions"
         />
         <div class="flex flex-col gap-1">
           <FormControl
@@ -42,21 +56,25 @@
     </template>
   </Dialog>
 </template>
+
 <script setup>
+import PhoneIcon from '@/components/Icons/PhoneIcon.vue'
 import TwilioCallUI from '@/components/Telephony/TwilioCallUI.vue'
 import ExotelCallUI from '@/components/Telephony/ExotelCallUI.vue'
-import { defaultCallingMedium, useTelephony } from '@/composables/telephony'
+import FreePBXCallUI from '@/components/Telephony/FreePBXCallUI.vue'
+import { callEnabled, defaultCallingMedium, useTelephony } from '@/composables/telephony'
 import { globalStore } from '@/stores/global'
-import { FormControl, call, toast } from 'frappe-ui'
-import { computed, nextTick, ref, watch } from 'vue'
+import { Button, Dialog, FormControl, call, toast } from 'frappe-ui'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 
 const { setMakeCall } = globalStore()
 const { isEnabled, isAnyEnabled } = useTelephony()
 
 const twilio = ref(null)
 const exotel = ref(null)
+const freepbx = ref(null)
 
-const callMedium = ref('Twilio')
+const callMedium = ref('FreePBX')
 const isDefaultMedium = ref(false)
 
 const show = ref(false)
@@ -64,38 +82,66 @@ const mobileNumber = ref('')
 
 const enabledIntegrations = computed(() =>
   [
+    { key: 'freepbx', label: 'FreePBX', ref: freepbx },
     { key: 'twilio', label: 'Twilio', ref: twilio },
     { key: 'exotel', label: 'Exotel', ref: exotel },
   ].filter(({ key }) => isEnabled(key)),
 )
 
+const callingMediumOptions = computed(() => {
+  if (enabledIntegrations.value.length > 0) {
+    return enabledIntegrations.value.map(({ label }) => label)
+  }
+  return ['FreePBX', 'Twilio', 'Exotel']
+})
+
+function openCallDialog() {
+  mobileNumber.value = ''
+  callMedium.value =
+    defaultCallingMedium.value ||
+    enabledIntegrations.value[0]?.label ||
+    'FreePBX'
+  show.value = true
+}
+
 function makeCall(number) {
-  if (enabledIntegrations.value.length > 1 && !defaultCallingMedium.value) {
-    mobileNumber.value = number
+  if (
+    !number ||
+    (enabledIntegrations.value.length > 1 && !defaultCallingMedium.value)
+  ) {
+    mobileNumber.value = number || ''
+    callMedium.value =
+      defaultCallingMedium.value ||
+      enabledIntegrations.value[0]?.label ||
+      'FreePBX'
     show.value = true
     return
   }
 
-  callMedium.value = enabledIntegrations.value[0]?.label ?? 'Twilio'
-  if (defaultCallingMedium.value) {
-    callMedium.value = defaultCallingMedium.value
-  }
-
+  callMedium.value =
+    defaultCallingMedium.value ||
+    enabledIntegrations.value[0]?.label ||
+    'FreePBX'
   mobileNumber.value = number
   makeCallUsing()
 }
 
 function makeCallUsing() {
+  if (!mobileNumber.value) {
+    toast.error(__('Please enter a mobile number'))
+    return
+  }
+
   if (isDefaultMedium.value && callMedium.value) {
     setDefaultCallingMedium()
   }
 
-  if (callMedium.value === 'Twilio') {
-    twilio.value.makeOutgoingCall(mobileNumber.value)
-  }
-
-  if (callMedium.value === 'Exotel') {
-    exotel.value.makeOutgoingCall(mobileNumber.value)
+  if (callMedium.value === 'FreePBX' || callMedium.value === 'Bridge Telephony') {
+    freepbx.value?.makeOutgoingCall(mobileNumber.value)
+  } else if (callMedium.value === 'Twilio') {
+    twilio.value?.makeOutgoingCall(mobileNumber.value)
+  } else if (callMedium.value === 'Exotel') {
+    exotel.value?.makeOutgoingCall(mobileNumber.value)
   }
   show.value = false
 }
@@ -111,8 +157,12 @@ async function setDefaultCallingMedium() {
   )
 }
 
+onMounted(() => {
+  setMakeCall(makeCall)
+})
+
 watch(
-  isAnyEnabled,
+  [isAnyEnabled, defaultCallingMedium],
   () =>
     nextTick(() => {
       for (const {
@@ -120,12 +170,16 @@ watch(
         label,
         ref: integrationRef,
       } of enabledIntegrations.value) {
-        integrationRef.value.setup()
-        callMedium.value = label
+        if (integrationRef.value && integrationRef.value.setup) {
+          integrationRef.value.setup()
+        }
       }
 
       if (isAnyEnabled.value) {
-        callMedium.value = enabledIntegrations.value[0]?.label ?? 'Twilio'
+        callMedium.value =
+          defaultCallingMedium.value ||
+          enabledIntegrations.value[0]?.label ||
+          'FreePBX'
         setMakeCall(makeCall)
       }
     }),

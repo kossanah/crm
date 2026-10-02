@@ -1,19 +1,36 @@
-import { createResource } from 'frappe-ui'
+import { call, createResource } from 'frappe-ui'
 import { computed, ref } from 'vue'
 
-const integrations = ref({})
-export const defaultCallingMedium = ref('')
-export const callEnabled = ref(false)
+const integrations = ref({
+  freepbx: true,
+})
+export const defaultCallingMedium = ref('FreePBX')
+export const callEnabled = ref(true)
+
+function handleData(data) {
+  if (!data) return
+  const res = data.message || data
+  const ints = { ...(res.integrations || {}) }
+  if (res.freepbx_enabled !== undefined) ints.freepbx = Boolean(res.freepbx_enabled)
+  if (res.twilio_enabled !== undefined) ints.twilio = Boolean(res.twilio_enabled)
+  if (res.exotel_enabled !== undefined) ints.exotel = Boolean(res.exotel_enabled)
+  if (res.africastalking_enabled !== undefined) ints.africastalking = Boolean(res.africastalking_enabled)
+
+  integrations.value = ints
+  defaultCallingMedium.value = res.default_calling_medium || (ints.freepbx ? 'FreePBX' : '')
+  callEnabled.value = Object.values(ints).some(Boolean)
+}
+
+// Fetch immediately via call() to bypass any stale IndexedDB cache
+call('crm.integrations.api.is_call_integration_enabled')
+  .then(handleData)
+  .catch((err) => console.warn('Failed to fetch telephony status:', err))
 
 createResource({
   url: 'crm.integrations.api.is_call_integration_enabled',
-  cache: 'Is Call Integration Enabled',
   auto: true,
-  onSuccess: (data) => {
-    integrations.value = data.integrations || {}
-    defaultCallingMedium.value = data.default_calling_medium
-    callEnabled.value = Object.values(integrations.value).some(Boolean)
-  },
+  onData: handleData,
+  onSuccess: handleData,
 })
 
 export function setEnabled(name, value) {

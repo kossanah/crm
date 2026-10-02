@@ -1,0 +1,28 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+
+packages:
+  - curl
+  - wget
+  - git
+  - ufw
+  - fail2ban
+  - htop
+  - net-tools
+  - dnsutils
+
+# Create a 4GB Swap file to prevent OOM errors during Asterisk compilation on Standard_B2s (4GB RAM)
+swap:
+  filename: /swapfile
+  size: "4294967296" # 4GB
+  maxsize: "4294967296"
+
+sysctl:
+  net.core.rmem_max: 16777216
+  net.core.wmem_max: 16777216
+  net.ipv4.udp_rmem_min: 8192
+  net.ipv4.udp_wmem_min: 8192
+
+runcmd:
+  - echo "VM initialization completed successfully" > /var/log/cloud-init-done.log

@@ -18,8 +18,31 @@
         >*</span
       >
     </div>
+    <div
+      v-if="isPhoneField(field)"
+      class="flex items-center gap-1.5"
+    >
+      <FormControl
+        type="text"
+        class="flex-1"
+        :placeholder="getPlaceholder(field)"
+        :value="data[field.fieldname]"
+        :disabled="Boolean(field.read_only || field.fieldtype === 'Read Only')"
+        :description="field.description"
+        @change="fieldChange($event.target.value, field)"
+      />
+      <Button
+        v-if="callEnabled && data[field.fieldname]"
+        :tooltip="__('Call {0}', [data[field.fieldname]])"
+        :icon="PhoneIcon"
+        variant="subtle"
+        theme="green"
+        class="shrink-0 cursor-pointer"
+        @click="makeCall(data[field.fieldname])"
+      />
+    </div>
     <FormControl
-      v-if="
+      v-else-if="
         (field.read_only || field.fieldtype === 'Read Only') &&
         ![
           'Int',
@@ -308,11 +331,14 @@ import ButtonControl, {
 } from '@/components/Controls/ButtonControl.vue'
 import EditIcon from '@/components/Icons/EditIcon.vue'
 import IndicatorIcon from '@/components/Icons/IndicatorIcon.vue'
+import PhoneIcon from '@/components/Icons/PhoneIcon.vue'
 import UserAvatar from '@/components/UserAvatar.vue'
 import TableMultiselectInput from '@/components/Controls/TableMultiselectInput.vue'
 import Link from '@/components/Controls/Link.vue'
 import Grid from '@/components/Controls/Grid.vue'
 import { createDocument } from '@/composables/document'
+import { callEnabled } from '@/composables/telephony'
+import { globalStore } from '@/stores/global'
 import {
   getFormat,
   evaluateDependsOnValue,
@@ -328,6 +354,7 @@ import {
 import { usersStore } from '@/stores/users'
 import { useDocument } from '@/data/document'
 import {
+  Button,
   Combobox,
   Tooltip,
   DatePicker,
@@ -339,6 +366,18 @@ import { computed, provide, inject, ref } from 'vue'
 const props = defineProps({
   field: { type: Object, required: true },
 })
+
+const { makeCall } = globalStore()
+
+function isPhoneField(field) {
+  if (!field) return false
+  return (
+    field.options === 'Phone' ||
+    field.fieldtype === 'Phone' ||
+    field.fieldname === 'mobile_no' ||
+    field.fieldname === 'phone'
+  )
+}
 
 const data = inject('data')
 const doctype = inject('doctype')

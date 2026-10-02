@@ -35,10 +35,20 @@ def _get_recording_credentials(telephony_medium: str) -> tuple | None:
 
 @frappe.whitelist()
 def is_call_integration_enabled():
+	freepbx_enabled = False
+	try:
+		if frappe.db.exists("DocType", "Bridge Telephony Settings"):
+			settings = frappe.get_cached_doc("Bridge Telephony Settings")
+			provider = getattr(settings, "provider", "FreePBX")
+			freepbx_enabled = bool(getattr(settings, "freepbx_enabled", 0) or (settings.enabled and provider == "FreePBX"))
+	except Exception:
+		pass
+
 	return {
 		"integrations": {
 			"twilio": bool(frappe.db.get_single_value("CRM Twilio Settings", "enabled")),
 			"exotel": bool(frappe.db.get_single_value("CRM Exotel Settings", "enabled")),
+			"freepbx": freepbx_enabled,
 		},
 		"default_calling_medium": get_user_default_calling_medium(),
 	}
@@ -46,12 +56,12 @@ def is_call_integration_enabled():
 
 def get_user_default_calling_medium():
 	if not frappe.db.exists("CRM Telephony Agent", frappe.session.user):
-		return None
+		return "FreePBX"
 
 	default_medium = frappe.db.get_value("CRM Telephony Agent", frappe.session.user, "default_medium")
 
 	if not default_medium:
-		return None
+		return "FreePBX"
 
 	return default_medium
 
@@ -263,6 +273,10 @@ def get_recording_url(call_log_name: str):
 
 	if not log.recording_url:
 		frappe.throw(_("Recording URL not found"), frappe.DoesNotExistError)
+
+	if log.telephony_medium == "FreePBX":
+		from bridge_telephony.api.freepbx import get_recording_audio
+		return get_recording_audio(call_log=call_log_name)
 
 	auth = _get_recording_credentials(log.telephony_medium)
 	# forward the browser's Range header so the provider (Twilio/Exotel CDN) can return

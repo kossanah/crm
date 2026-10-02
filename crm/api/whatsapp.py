@@ -376,3 +376,26 @@ def get_from_name(message):
         from_name = " ".join(
             filter(None, [doc.get("first_name"), doc.get("last_name")]))
     return from_name
+
+
+def add_roles():
+    if "frappe_whatsapp" not in frappe.get_installed_apps():
+        return
+
+    from frappe.permissions import add_permission, update_permission_property
+
+    role_list = ["Sales Manager", "Sales User"]
+    doctypes = ["WhatsApp Message", "WhatsApp Templates", "WhatsApp Settings"]
+    for doctype in doctypes:
+        for role in role_list:
+            if frappe.db.exists("Custom DocPerm", {"parent": doctype, "role": role}):
+                continue
+            add_permission(doctype, role, 0, "write")
+            update_permission_property(doctype, role, 0, "create", 1)
+            update_permission_property(doctype, role, 0, "delete", 1)
+            update_permission_property(doctype, role, 0, "share", 1)
+            update_permission_property(doctype, role, 0, "email", 1)
+            update_permission_property(doctype, role, 0, "print", 1)
+            update_permission_property(doctype, role, 0, "report", 1)
+            update_permission_property(doctype, role, 0, "export", 1)
+

@@ -10,7 +10,7 @@
     <TextEditor
       ref="content"
       variant="ghost"
-      editor-class="prose-sm h-[150px] text-ink-base overflow-auto"
+      editor-class="prose-sm h-[140px] text-ink-gray-9 overflow-auto p-2 bg-surface-gray-2 rounded-lg border border-outline-gray-2"
       :bubbleMenu="true"
       :content="task.description"
       :placeholder="__('Add description...')"
@@ -21,7 +21,8 @@
         <Dropdown :options="taskStatusOptions(updateTaskStatus)">
           <Button
             :label="task.status"
-            class="bg-surface-gray-9 text-ink-base hover:bg-surface-gray-8"
+            variant="subtle"
+            class="text-ink-gray-8 hover:text-ink-gray-9 cursor-pointer"
           >
             <template #prefix>
               <TaskStatusIcon :status="task.status" />
@@ -31,7 +32,8 @@
         <Dropdown :options="taskPriorityOptions(updateTaskPriority)">
           <Button
             :label="task.priority"
-            class="bg-surface-gray-9 text-ink-base hover:bg-surface-gray-8"
+            variant="subtle"
+            class="text-ink-gray-8 hover:text-ink-gray-9 cursor-pointer"
           >
             <template #prefix>
               <TaskPriorityIcon :priority="task.priority" />
@@ -113,36 +115,42 @@ function updateTaskPriority(priority) {
 </script>
 <style scoped>
 :deep(.title input) {
-  background-color: var(--surface-gray-10);
-  caret-color: var(--ink-base);
-  color: var(--ink-base);
+  background-color: transparent;
+  caret-color: var(--text-ink-gray-9, currentColor);
+  color: var(--text-ink-gray-9, currentColor);
   outline: none;
   border: none;
   padding: 0;
 }
 :deep(.datepicker input) {
-  background-color: var(--surface-gray-9);
-  caret-color: var(--ink-base);
-  color: var(--ink-base);
+  background-color: var(--surface-gray-2);
+  caret-color: var(--text-ink-gray-9, currentColor);
+  color: var(--text-ink-gray-9, currentColor);
   outline: none;
-  border: none;
+  border: 1px solid var(--outline-gray-2);
+  border-radius: 6px;
 }
 
-:deep(.title input:focus),
-:deep(.datepicker input:focus) {
+:deep(.title input:focus) {
   border: none;
+  outline: none;
+  box-shadow: none;
+}
+:deep(.datepicker input:focus) {
+  border-color: var(--outline-gray-3);
   outline: none;
   box-shadow: none;
 }
 
 :deep(.user button) {
-  background-color: var(--surface-gray-9);
-  border: none;
-  color: var(--ink-base);
+  background-color: var(--surface-gray-2);
+  border: 1px solid var(--outline-gray-2);
+  color: var(--text-ink-gray-8);
+  border-radius: 6px;
 }
 :deep(.user button:hover) {
-  background-color: var(--surface-gray-8);
-  border: none;
+  background-color: var(--surface-gray-3);
+  color: var(--text-ink-gray-9);
 }
 :deep(.user button:focus) {
   box-shadow: none;
