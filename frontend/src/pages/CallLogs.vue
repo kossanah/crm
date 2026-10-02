@@ -69,10 +69,12 @@ import CallLogsListView from '@/components/ListViews/CallLogsListView.vue'
 import EmptyState from '@/components/ListViews/EmptyState.vue'
 import CallLogDetailModal from '@/components/Modals/CallLogDetailModal.vue'
 import { useDoctypeModal } from '@/composables/doctypeModal'
+import { useBroadcast } from '@/composables/useBroadcast'
+import { globalStore } from '@/stores/global'
 import { getCallLogDetail } from '@/utils/callLog'
 import { useTelemetry } from 'frappe-ui/frappe'
 import { createResource } from 'frappe-ui'
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 
 const callLogsListView = ref(null)
 
@@ -82,6 +84,18 @@ const loadMore = ref(1)
 const triggerResize = ref(1)
 const updatedPageCount = ref(20)
 const viewControls = ref(null)
+
+const { on: onBroadcast } = useBroadcast()
+const { $socket } = globalStore()
+
+function reloadCallLogs() {
+  if (callLogs.value?.reload) {
+    callLogs.value.reload()
+  }
+}
+
+onBroadcast('crm_call_log_updated', reloadCallLogs)
+onBroadcast('crm_call_ended', reloadCallLogs)
 
 const rows = computed(() => {
   if (
@@ -156,5 +170,16 @@ const openCallLogFromURL = () => {
 
 onMounted(() => {
   openCallLogFromURL()
+  if ($socket) {
+    $socket.on('call_status_update', reloadCallLogs)
+    $socket.on('crm_call_log_updated', reloadCallLogs)
+  }
+})
+
+onBeforeUnmount(() => {
+  if ($socket) {
+    $socket.off('call_status_update', reloadCallLogs)
+    $socket.off('crm_call_log_updated', reloadCallLogs)
+  }
 })
 </script>

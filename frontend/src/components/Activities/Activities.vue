@@ -476,6 +476,7 @@ import { globalStore } from '@/stores/global'
 import { usersStore } from '@/stores/users'
 import { useTimelinePreferences } from '@/composables/useTimelinePreferences'
 import { whatsappEnabled } from '@/composables/whatsapp'
+import { useBroadcast } from '@/composables/useBroadcast'
 import { useDocument } from '@/data/document'
 import { useTelemetry } from 'frappe-ui/frappe'
 import { Button, createResource, toast } from 'frappe-ui'
@@ -560,9 +561,22 @@ watch(
   { immediate: true },
 )
 
+const { on: onBroadcast } = useBroadcast()
+
+function handleCallLogRefresh(data) {
+  if (!data || !data.reference_docname || data.reference_docname === props.docname) {
+    all_activities.reload()
+  }
+}
+
+onBroadcast('crm_call_log_updated', handleCallLogRefresh)
+onBroadcast('crm_call_ended', () => all_activities.reload())
+
 onBeforeUnmount(() => {
   $socket.off('whatsapp_message')
   $socket.off('docinfo_update', handleDocinfoUpdate)
+  $socket.off('call_status_update', handleCallLogRefresh)
+  $socket.off('crm_call_log_updated', handleCallLogRefresh)
   $socket.emit('doc_unsubscribe', props.doctype, props.docname)
 })
 
@@ -579,6 +593,8 @@ onMounted(() => {
       nextTick(() => scroll())
     }
   })
+  $socket.on('call_status_update', handleCallLogRefresh)
+  $socket.on('crm_call_log_updated', handleCallLogRefresh)
 
   nextTick(() => {
     const hash = route.hash.slice(1) || null

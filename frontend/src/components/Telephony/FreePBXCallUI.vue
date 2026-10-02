@@ -440,9 +440,12 @@ import { globalStore } from '@/stores/global'
 import { useDraggable, useWindowSize } from '@vueuse/core'
 import { TextEditor, Avatar, Button, call, toast } from 'frappe-ui'
 import { ref, shallowRef, markRaw, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
+import { useBroadcast } from '@/composables/useBroadcast'
 
 const { $socket } = globalStore()
+const route = useRoute()
+const { send: broadcastSend } = useBroadcast()
 
 const callPopupHeader = ref(null)
 const showCallPopup = ref(false)
@@ -756,15 +759,44 @@ function handleWebRTCSession(session) {
   })
 }
 
+function parseDurationSeconds(durStr) {
+  if (!durStr) return 0
+  const parts = String(durStr).split(':').map(Number)
+  if (parts.length === 2) return (parts[0] * 60) + parts[1]
+  if (parts.length === 3) return (parts[0] * 3600) + (parts[1] * 60) + parts[2]
+  return 0
+}
+
 function handleCallEnded() {
   stopRingtone()
   callStatus.value = 'Call ended'
+  let endedDuration = '00:00'
   if (counterUp.value) {
-    callDuration.value = counterUp.value.updatedTime || '00:00'
+    endedDuration = counterUp.value.updatedTime || '00:00'
+    callDuration.value = endedDuration
     counterUp.value.stop()
   }
   activeSession.value = null
   showKeypad.value = false
+
+  const durSecs = parseDurationSeconds(endedDuration)
+  if (callLogId.value) {
+    call('bridge_telephony.api.freepbx.update_webrtc_call_status', {
+      call_log: callLogId.value,
+      status: 'Completed',
+      duration: durSecs,
+    }).finally(() => {
+      broadcastSend('crm_call_log_updated', {
+        call_id: callLogId.value,
+        status: 'Completed',
+        duration: durSecs,
+      })
+      broadcastSend('crm_call_ended', { call_id: callLogId.value })
+    })
+  } else {
+    broadcastSend('crm_call_log_updated', { status: 'Completed', duration: durSecs })
+    broadcastSend('crm_call_ended', {})
+  }
 }
 
 function handleCallFailed(cause) {
@@ -773,6 +805,25 @@ function handleCallFailed(cause) {
   if (counterUp.value) counterUp.value.stop()
   activeSession.value = null
   showKeypad.value = false
+
+  const st = cause === 'Busy' ? 'Busy' : (cause === 'Rejected' ? 'No Answer' : 'Failed')
+  if (callLogId.value) {
+    call('bridge_telephony.api.freepbx.update_webrtc_call_status', {
+      call_log: callLogId.value,
+      status: st,
+      duration: 0,
+    }).finally(() => {
+      broadcastSend('crm_call_log_updated', {
+        call_id: callLogId.value,
+        status: st,
+        duration: 0,
+      })
+      broadcastSend('crm_call_ended', { call_id: callLogId.value })
+    })
+  } else {
+    broadcastSend('crm_call_log_updated', { status: st })
+    broadcastSend('crm_call_ended', {})
+  }
 }
 
 function acceptIncomingCall() {
@@ -832,7 +883,7 @@ function sendDTMF(digit) {
   }
 }
 
-async function makeOutgoingCall(number) {
+async function makeOutgoingCall(number, reference_doctype = null, reference_name = null) {
   if (!number) {
     toast.error(__('Please provide a valid phone number'))
     return
@@ -844,13 +895,38 @@ async function makeOutgoingCall(number) {
 
   fetchContactInfo(number)
 
+  let ref_dt = reference_doctype
+  let ref_dn = reference_name
+  if (!ref_dn && route) {
+    if (route.name === 'Lead' && route.params.leadId) {
+      ref_dt = 'CRM Lead'
+      ref_dn = route.params.leadId
+    } else if (route.name === 'Deal' && route.params.dealId) {
+      ref_dt = 'CRM Deal'
+      ref_dn = route.params.dealId
+    } else if (route.name === 'Contact' && route.params.contactId) {
+      ref_dt = 'Contact'
+      ref_dn = route.params.contactId
+    }
+  }
+
   // 1. In-Browser WebRTC Calling (if registered and enabled)
   if (telephonyProfile.value?.enable_webrtc && ua && isRegistered.value) {
     try {
       call('bridge_telephony.api.freepbx.create_webrtc_call_log', {
         to_number: number,
+        reference_doctype: ref_dt,
+        reference_name: ref_dn,
       }).then(res => {
-        if (res && res.call_log) callLogId.value = res.call_log
+        if (res && res.call_log) {
+          callLogId.value = res.call_log
+          broadcastSend('crm_call_log_updated', {
+            call_id: res.call_log,
+            status: 'Initiated',
+            reference_doctype: res.reference_doctype || ref_dt,
+            reference_docname: res.reference_docname || ref_dn,
+          })
+        }
       }).catch(() => {})
 
       const options = {
@@ -874,12 +950,20 @@ async function makeOutgoingCall(number) {
   try {
     const res = await call('bridge_telephony.api.freepbx.make_call', {
       to_number: number,
+      reference_doctype: ref_dt,
+      reference_name: ref_dn,
     })
     if (res && res.success) {
       callLogId.value = res.call_log || res.call_id || ''
       const ext = res.agent_extension || '1001'
       callStatus.value = `Calling extension ${ext}...`
       toast.success(res.message || __('Ringing your extension...'))
+      broadcastSend('crm_call_log_updated', {
+        call_id: callLogId.value,
+        status: 'Initiated',
+        reference_doctype: ref_dt,
+        reference_docname: ref_dn,
+      })
     } else {
       callStatus.value = __('Call Failed')
       toast.error(res?.error || res?.message || __('Failed to initiate call on FreePBX'))
@@ -1104,12 +1188,34 @@ function save() {
 
 async function ensureCallLog() {
   if (callLogId.value) return callLogId.value
+  let ref_dt = null
+  let ref_dn = null
+  if (route) {
+    if (route.name === 'Lead' && route.params.leadId) {
+      ref_dt = 'CRM Lead'
+      ref_dn = route.params.leadId
+    } else if (route.name === 'Deal' && route.params.dealId) {
+      ref_dt = 'CRM Deal'
+      ref_dn = route.params.dealId
+    } else if (route.name === 'Contact' && route.params.contactId) {
+      ref_dt = 'Contact'
+      ref_dn = route.params.contactId
+    }
+  }
   try {
     const res = await call('bridge_telephony.api.freepbx.create_webrtc_call_log', {
       to_number: phoneNumber.value || 'Unknown',
+      reference_doctype: ref_dt,
+      reference_name: ref_dn,
     })
     if (res && res.call_log) {
       callLogId.value = res.call_log
+      broadcastSend('crm_call_log_updated', {
+        call_id: res.call_log,
+        status: 'Initiated',
+        reference_doctype: res.reference_doctype || ref_dt,
+        reference_docname: res.reference_docname || ref_dn,
+      })
       return res.call_log
     }
   } catch (e) {
@@ -1136,6 +1242,7 @@ async function createUpdateNote() {
       dirty.value = false
     })
     toast.success(__('Note saved successfully'))
+    broadcastSend('crm_call_log_updated', { call_id: callLogId.value })
   } catch (err) {
     toast.error(err.messages ? err.messages[0] : (err.message || __('Failed to save note')))
   }
@@ -1159,6 +1266,7 @@ async function createUpdateTask() {
       dirty.value = false
     })
     toast.success(__('Task saved successfully'))
+    broadcastSend('crm_call_log_updated', { call_id: callLogId.value })
   } catch (err) {
     toast.error(err.messages ? err.messages[0] : (err.message || __('Failed to save task')))
   }

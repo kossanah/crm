@@ -104,7 +104,12 @@ function openCallDialog() {
   show.value = true
 }
 
-function makeCall(number) {
+const currentRefDoctype = ref(null)
+const currentRefDocname = ref(null)
+
+function makeCall(number, reference_doctype = null, reference_name = null) {
+  currentRefDoctype.value = reference_doctype
+  currentRefDocname.value = reference_name
   if (
     !number ||
     (enabledIntegrations.value.length > 1 && !defaultCallingMedium.value)
@@ -137,7 +142,11 @@ function makeCallUsing() {
   }
 
   if (callMedium.value === 'FreePBX' || callMedium.value === 'Bridge Telephony') {
-    freepbx.value?.makeOutgoingCall(mobileNumber.value)
+    freepbx.value?.makeOutgoingCall(
+      mobileNumber.value,
+      currentRefDoctype.value,
+      currentRefDocname.value,
+    )
   } else if (callMedium.value === 'Twilio') {
     twilio.value?.makeOutgoingCall(mobileNumber.value)
   } else if (callMedium.value === 'Exotel') {
