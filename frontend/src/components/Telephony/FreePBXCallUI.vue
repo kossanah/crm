@@ -439,7 +439,7 @@ import CountUpTimer from '@/components/CountUpTimer.vue'
 import { globalStore } from '@/stores/global'
 import { useDraggable, useWindowSize } from '@vueuse/core'
 import { TextEditor, Avatar, Button, call, toast } from 'frappe-ui'
-import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
+import { ref, shallowRef, markRaw, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 
 const { $socket } = globalStore()
@@ -471,8 +471,8 @@ const remoteAudioRef = ref(null)
 const telephonyProfile = ref(null)
 const isWebRTCReady = ref(false)
 const isRegistered = ref(false)
-const activeSession = ref(null)
-const ua = ref(null)
+const activeSession = shallowRef(null)
+let ua = null
 const isMuted = ref(false)
 const showKeypad = ref(false)
 
@@ -632,8 +632,9 @@ function initWebRTC(profile) {
 function setupJsSIPUA(profile) {
   if (!window.JsSIP || !profile.extension || !profile.secret) return
 
-  if (ua.value) {
-    try { ua.value.stop() } catch (e) {}
+  if (ua) {
+    try { ua.stop() } catch (e) {}
+    ua = null
   }
 
   try {
@@ -649,28 +650,28 @@ function setupJsSIPUA(profile) {
       }
     }
 
-    ua.value = new window.JsSIP.UA(configuration)
+    ua = markRaw(new window.JsSIP.UA(configuration))
 
-    ua.value.on('registered', () => {
+    ua.on('registered', () => {
       console.log(`[WebRTC] Extension ${profile.extension} successfully registered to FreePBX.`)
       isRegistered.value = true
       isWebRTCReady.value = true
     })
 
-    ua.value.on('unregistered', () => {
+    ua.on('unregistered', () => {
       isRegistered.value = false
     })
 
-    ua.value.on('registrationFailed', (e) => {
+    ua.on('registrationFailed', (e) => {
       console.warn(`[WebRTC] Registration failed for ${profile.extension}:`, e?.cause)
       isRegistered.value = false
     })
 
-    ua.value.on('newRTCSession', (data) => {
+    ua.on('newRTCSession', (data) => {
       handleWebRTCSession(data.session)
     })
 
-    ua.value.start()
+    ua.start()
   } catch (e) {
     console.error('[WebRTC] Initialization error:', e)
   }
@@ -692,7 +693,7 @@ function attachAudioStream(stream) {
 }
 
 function handleWebRTCSession(session) {
-  activeSession.value = session
+  activeSession.value = markRaw(session)
   isMuted.value = false
 
   const isIncoming = session.direction === 'incoming'
@@ -844,7 +845,7 @@ async function makeOutgoingCall(number) {
   fetchContactInfo(number)
 
   // 1. In-Browser WebRTC Calling (if registered and enabled)
-  if (telephonyProfile.value?.enable_webrtc && ua.value && isRegistered.value) {
+  if (telephonyProfile.value?.enable_webrtc && ua && isRegistered.value) {
     try {
       call('bridge_telephony.api.freepbx.create_webrtc_call_log', {
         to_number: number,
@@ -862,7 +863,7 @@ async function makeOutgoingCall(number) {
 
       const domain = telephonyProfile.value.sip_domain || 'webrtc.bridge.ng'
       callStatus.value = __('Calling...')
-      ua.value.call(`sip:${number}@${domain}`, options)
+      ua.call(`sip:${number}@${domain}`, options)
       return
     } catch (err) {
       console.warn('[WebRTC] In-browser call error, falling back to AMI:', err)
@@ -1032,8 +1033,9 @@ onMounted(() => {
 onBeforeUnmount(() => {
   stopRingtone()
   stopPolling()
-  if (ua.value) {
-    try { ua.value.stop() } catch (e) {}
+  if (ua) {
+    try { ua.stop() } catch (e) {}
+    ua = null
   }
   if ($socket) {
     $socket.off('crm_incoming_call', handleIncomingCall)
