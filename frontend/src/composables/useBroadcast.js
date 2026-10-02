@@ -5,9 +5,14 @@ const bus = {
   send(event, payload) {
     window.dispatchEvent(new CustomEvent(event, { detail: payload }))
 
-    const broadcasts = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
-    broadcasts.push({ event, payload, timestamp: Date.now() })
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(broadcasts))
+    // Real-time call events are transient in-memory signals and should not be persisted or replayed
+    if (event.startsWith('crm_call_')) return
+
+    try {
+      const broadcasts = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
+      broadcasts.push({ event, payload, timestamp: Date.now() })
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(broadcasts))
+    } catch (e) {}
   },
   on(event, handler) {
     window.addEventListener(event, (e) => handler(e.detail))
@@ -24,15 +29,27 @@ export function useBroadcast() {
     bus.on(event, handler)
     listeners.push({ event, handler })
 
-    // check localStorage for missed broadcasts on init
+    // check localStorage for missed non-call broadcasts on init
     onMounted(() => {
-      const broadcasts = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
-      const missed = broadcasts.filter((b) => b.event === event)
-      if (missed.length) {
-        missed.forEach((b) => handler(b.payload))
-        // clear handled broadcasts
-        const remaining = broadcasts.filter((b) => b.event !== event)
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(remaining))
+      try {
+        const broadcasts = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
+        // Clean out any transient call events or stale events older than 30s
+        const now = Date.now()
+        const cleaned = broadcasts.filter(
+          (b) => !b.event?.startsWith('crm_call_') && now - (b.timestamp || 0) < 30000,
+        )
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(cleaned))
+
+        if (event.startsWith('crm_call_')) return
+
+        const missed = cleaned.filter((b) => b.event === event)
+        if (missed.length) {
+          missed.forEach((b) => handler(b.payload))
+          const remaining = cleaned.filter((b) => b.event !== event)
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(remaining))
+        }
+      } catch (e) {
+        localStorage.removeItem(STORAGE_KEY)
       }
     })
   }

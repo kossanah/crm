@@ -468,6 +468,7 @@ const phoneNumber = ref('')
 const callStatus = ref('')
 const callDuration = ref('00:00')
 const callLogId = ref('')
+let isCallEndedHandled = false
 
 // WebRTC State
 const remoteAudioRef = ref(null)
@@ -768,6 +769,9 @@ function parseDurationSeconds(durStr) {
 }
 
 function handleCallEnded() {
+  if (isCallEndedHandled) return
+  isCallEndedHandled = true
+
   stopRingtone()
   callStatus.value = 'Call ended'
   let endedDuration = '00:00'
@@ -800,6 +804,9 @@ function handleCallEnded() {
 }
 
 function handleCallFailed(cause) {
+  if (isCallEndedHandled) return
+  isCallEndedHandled = true
+
   stopRingtone()
   callStatus.value = cause ? `Call failed (${cause})` : 'Call ended'
   if (counterUp.value) counterUp.value.stop()
@@ -888,6 +895,7 @@ async function makeOutgoingCall(number, reference_doctype = null, reference_name
     toast.error(__('Please provide a valid phone number'))
     return
   }
+  isCallEndedHandled = false
   phoneNumber.value = number
   callStatus.value = __('Initiating call...')
   showCallPopup.value = true
@@ -1012,6 +1020,7 @@ function handleIncomingCall(data) {
   if (!data || !data.caller) return
   console.log('FreePBX incoming call notification received:', data)
 
+  isCallEndedHandled = false
   phoneNumber.value = data.caller
   callLogId.value = data.call_id || data.call_log || ''
   callStatus.value = 'Incoming call...'
@@ -1045,7 +1054,9 @@ function handleStatusUpdate(data) {
   }
 
   if (data.status === 'Completed') {
-    handleCallEnded()
+    if (!isCallEndedHandled) {
+      handleCallEnded()
+    }
     const d = data.duration || 0
     const mins = Math.floor(d / 60).toString().padStart(2, '0')
     const secs = (d % 60).toString().padStart(2, '0')
@@ -1147,6 +1158,7 @@ function openDealOrLead() {
 
 function closeCallPopup() {
   stopRingtone()
+  isCallEndedHandled = false
   if (showNote.value || showTask.value) {
     updateWindowHeight(false)
   }

@@ -563,16 +563,26 @@ watch(
 
 const { on: onBroadcast } = useBroadcast()
 
+let reloadDebounceTimer = null
 function handleCallLogRefresh(data) {
-  if (!data || !data.reference_docname || data.reference_docname === props.docname) {
-    all_activities.reload()
+  if (data && data.reference_docname && data.reference_docname !== props.docname) {
+    return
   }
+  if (reloadDebounceTimer) return
+  reloadDebounceTimer = setTimeout(() => {
+    all_activities.reload()
+    reloadDebounceTimer = null
+  }, 1000)
 }
 
 onBroadcast('crm_call_log_updated', handleCallLogRefresh)
-onBroadcast('crm_call_ended', () => all_activities.reload())
+onBroadcast('crm_call_ended', handleCallLogRefresh)
 
 onBeforeUnmount(() => {
+  if (reloadDebounceTimer) {
+    clearTimeout(reloadDebounceTimer)
+    reloadDebounceTimer = null
+  }
   $socket.off('whatsapp_message')
   $socket.off('docinfo_update', handleDocinfoUpdate)
   $socket.off('call_status_update', handleCallLogRefresh)

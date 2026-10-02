@@ -88,10 +88,15 @@ const viewControls = ref(null)
 const { on: onBroadcast } = useBroadcast()
 const { $socket } = globalStore()
 
+let reloadDebounceTimer = null
 function reloadCallLogs() {
-  if (callLogs.value?.reload) {
-    callLogs.value.reload()
-  }
+  if (reloadDebounceTimer) return
+  reloadDebounceTimer = setTimeout(() => {
+    if (callLogs.value?.reload) {
+      callLogs.value.reload()
+    }
+    reloadDebounceTimer = null
+  }, 1000)
 }
 
 onBroadcast('crm_call_log_updated', reloadCallLogs)
@@ -177,6 +182,10 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  if (reloadDebounceTimer) {
+    clearTimeout(reloadDebounceTimer)
+    reloadDebounceTimer = null
+  }
   if ($socket) {
     $socket.off('call_status_update', reloadCallLogs)
     $socket.off('crm_call_log_updated', reloadCallLogs)
