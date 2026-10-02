@@ -1,4 +1,4 @@
-import { call, createResource } from 'frappe-ui'
+import { call } from 'frappe-ui'
 import { computed, ref } from 'vue'
 
 const integrations = ref({
@@ -25,13 +25,6 @@ function handleData(data) {
 call('crm.integrations.api.is_call_integration_enabled')
   .then(handleData)
   .catch((err) => console.warn('Failed to fetch telephony status:', err))
-
-createResource({
-  url: 'crm.integrations.api.is_call_integration_enabled',
-  auto: true,
-  onData: handleData,
-  onSuccess: handleData,
-})
 
 export function setEnabled(name, value) {
   integrations.value[name] = value

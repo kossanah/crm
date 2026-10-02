@@ -289,12 +289,6 @@ const links = [
     to: 'Tasks',
   },
   {
-    label: 'Calendar',
-    icon: CalendarIcon,
-    to: 'Calendar',
-    condition: () => !props.mobile,
-  },
-  {
     label: 'Call Logs',
     icon: PhoneIcon,
     to: 'Call Logs',
