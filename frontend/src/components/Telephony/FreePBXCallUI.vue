@@ -1,5 +1,8 @@
 <template>
   <div>
+    <!-- Hidden remote audio element for WebRTC audio playback -->
+    <audio ref="remoteAudioRef" autoplay playsinline class="hidden"></audio>
+
     <!-- Minimized pill in top bar -->
     <div
       v-show="showSmallCallPopup"
@@ -19,8 +22,15 @@
       </div>
       <span class="max-w-[130px] truncate font-medium text-ink-gray-9">{{ contact?.full_name ?? contact?.mobile_no ?? phoneNumber }}</span>
       <span class="text-ink-gray-4">·</span>
-      <div v-if="callStatus == 'In progress'" class="text-emerald-500 dark:text-emerald-400 font-mono font-medium">
-        {{ counterUp?.updatedTime }}
+      <div v-if="callStatus == 'In progress'" class="flex items-center gap-1.5 text-emerald-500 dark:text-emerald-400 font-mono font-medium">
+        <span>{{ counterUp?.updatedTime }}</span>
+        <button
+          class="size-5 rounded-full bg-rose-600 hover:bg-rose-700 flex items-center justify-center text-white cursor-pointer ml-1 transition-colors"
+          :title="__('Hang Up')"
+          @click.stop="hangUpCall"
+        >
+          <PhoneIcon class="size-2.5 rotate-[135deg]" />
+        </button>
       </div>
       <div
         v-else-if="callStatus == 'Call ended' || callStatus == 'No answer'"
@@ -129,7 +139,7 @@
             @click="toggleCallPopup"
           />
           <Button
-            v-if="callStatus == 'Call ended' || callStatus == 'No answer' || callStatus == 'Failed'"
+            v-if="callStatus == 'Call ended' || callStatus == 'No answer' || callStatus.startsWith('Call failed')"
             variant="ghost"
             class="text-ink-gray-7 hover:text-ink-gray-9 hover:bg-surface-gray-3 shrink-0 cursor-pointer"
             icon="lucide-x"
@@ -173,7 +183,7 @@
           <TaskPanel ref="taskRef" :task="task" />
         </div>
 
-        <!-- Incoming Call Ringing Screen-Pop (Matching Twilio UI docs.frappe.io/crm/twilio#call-pop-up) -->
+        <!-- Incoming Call Ringing Screen-Pop -->
         <div v-else-if="callStatus === 'Incoming call...'" class="flex flex-col items-center justify-center gap-3 py-3">
           <div class="relative flex items-center justify-center my-2">
             <div class="pulse-container relative flex items-center justify-center">
@@ -219,7 +229,7 @@
               variant="solid"
               theme="green"
               :label="__('Accept')"
-              class="rounded-lg text-white px-5 font-semibold shadow-md shadow-green-500/20"
+              class="rounded-lg text-white px-5 font-semibold shadow-md shadow-green-500/20 cursor-pointer"
               :iconLeft="PhoneIcon"
               @click="acceptIncomingCall"
             />
@@ -228,7 +238,7 @@
               variant="solid"
               theme="red"
               :label="__('Reject')"
-              class="rounded-lg text-white px-5 font-semibold shadow-md shadow-red-500/20"
+              class="rounded-lg text-white px-5 font-semibold shadow-md shadow-red-500/20 cursor-pointer"
               @click="rejectIncomingCall"
             >
               <template #prefix>
@@ -266,9 +276,21 @@
             </div>
           </div>
 
-          <!-- MicroSIP Assistant Banner -->
+          <!-- In-Call DTMF Keypad View -->
+          <div v-if="showKeypad" class="grid grid-cols-3 gap-1.5 p-2 bg-surface-gray-2 rounded-lg border border-outline-gray-2 my-1">
+            <button
+              v-for="digit in ['1','2','3','4','5','6','7','8','9','*','0','#']"
+              :key="digit"
+              class="h-8 rounded bg-surface-elevation-2 hover:bg-surface-gray-3 text-ink-gray-9 font-semibold text-sm transition-colors cursor-pointer border border-outline-gray-2 active:scale-95"
+              @click="sendDTMF(digit)"
+            >
+              {{ digit }}
+            </button>
+          </div>
+
+          <!-- MicroSIP Assistant Banner (shown only for legacy AMI calls) -->
           <div
-            v-if="callStatus.startsWith('Calling extension') || callStatus.startsWith('Ringing')"
+            v-if="!activeSession && (callStatus.startsWith('Calling extension') || callStatus.startsWith('Ringing'))"
             class="rounded-lg bg-surface-gray-2 p-2.5 text-xs text-ink-gray-7 border border-outline-gray-2 mt-1 flex items-center gap-2"
           >
             <span class="text-blue-500 dark:text-blue-400 font-bold text-sm">ℹ</span>
@@ -313,6 +335,56 @@
         </div>
 
         <div class="flex items-center gap-2">
+          <!-- Active Connected Call Controls (Mute, Keypad, Hang Up) -->
+          <template v-if="callStatus === 'In progress'">
+            <Button
+              variant="subtle"
+              class="text-ink-gray-8 hover:text-ink-gray-9 cursor-pointer"
+              :class="{ '!bg-amber-500 !text-white': isMuted }"
+              :tooltip="isMuted ? __('Unmute Microphone') : __('Mute Microphone')"
+              size="md"
+              :icon="isMuted ? 'lucide-mic-off' : 'lucide-mic'"
+              @click="toggleMute"
+            />
+            <Button
+              variant="subtle"
+              class="text-ink-gray-8 hover:text-ink-gray-9 cursor-pointer"
+              :class="{ '!bg-blue-600 !text-white': showKeypad }"
+              :tooltip="__('Dialpad DTMF')"
+              size="md"
+              icon="lucide-hash"
+              @click="showKeypad = !showKeypad"
+            />
+            <Button
+              size="md"
+              variant="solid"
+              theme="red"
+              :label="__('Hang Up')"
+              class="text-white font-semibold cursor-pointer shadow-md shadow-red-500/20"
+              @click="hangUpCall"
+            >
+              <template #prefix>
+                <PhoneIcon class="rotate-[135deg]" />
+              </template>
+            </Button>
+          </template>
+
+          <!-- Calling / Ringing state: Cancel button -->
+          <template v-else-if="callStatus === 'Calling...' || callStatus === 'Ringing...' || callStatus.startsWith('Calling') || callStatus.startsWith('Ringing')">
+            <Button
+              size="md"
+              variant="solid"
+              theme="red"
+              :label="__('Cancel')"
+              class="text-white font-semibold cursor-pointer"
+              @click="hangUpCall"
+            >
+              <template #prefix>
+                <PhoneIcon class="rotate-[135deg]" />
+              </template>
+            </Button>
+          </template>
+
           <!-- Save / Update note/task button -->
           <Button
             v-if="(showNote && note.name && dirty) || (showTask && task.name && dirty)"
@@ -340,11 +412,10 @@
             @click="closeEditor"
           />
           <Button
-            v-else-if="callStatus === 'In progress' || callStatus.startsWith('Calling') || callStatus.startsWith('Ringing')"
+            v-else-if="callStatus == 'Call ended' || callStatus == 'No answer' || callStatus.startsWith('Call failed')"
             size="md"
             variant="subtle"
-            theme="red"
-            :label="__('Dismiss')"
+            :label="__('Close')"
             @click="closeCallPopup"
           />
         </div>
@@ -394,6 +465,16 @@ const phoneNumber = ref('')
 const callStatus = ref('')
 const callDuration = ref('00:00')
 const callLogId = ref('')
+
+// WebRTC State
+const remoteAudioRef = ref(null)
+const telephonyProfile = ref(null)
+const isWebRTCReady = ref(false)
+const isRegistered = ref(false)
+const activeSession = ref(null)
+const ua = ref(null)
+const isMuted = ref(false)
+const showKeypad = ref(false)
 
 const contact = ref({
   name: '',
@@ -454,7 +535,7 @@ function showNoteWindow() {
 function showTaskWindow() {
   showTask.value = !showTask.value
   if (!showNote.value) {
-    updateWindowHeight(showTask.value)
+    updateWindowHeight(showNote.value)
   }
   if (showTask.value) {
     showNote.value = false
@@ -489,8 +570,8 @@ function playRingtone() {
       const osc = audioCtx.createOscillator()
       const gain = audioCtx.createGain()
       osc.type = 'sine'
-      osc.frequency.setValueAtTime(523.25, now) // C5
-      osc.frequency.setValueAtTime(659.25, now + 0.2) // E5
+      osc.frequency.setValueAtTime(523.25, now)
+      osc.frequency.setValueAtTime(659.25, now + 0.2)
       gain.gain.setValueAtTime(0.12, now)
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.9)
       osc.connect(gain)
@@ -519,17 +600,235 @@ function stopRingtone() {
   }
 }
 
+// -------------------------------------------------------------
+// WebRTC Engine & Session Management
+// -------------------------------------------------------------
+
+async function loadTelephonyProfile() {
+  try {
+    const res = await call('bridge_telephony.api.freepbx.get_my_telephony_profile')
+    if (res && res.enabled && res.extension) {
+      telephonyProfile.value = res
+      if (res.enable_webrtc) {
+        initWebRTC(res)
+      }
+    }
+  } catch (err) {
+    console.warn('[WebRTC] Could not load telephony profile:', err)
+  }
+}
+
+function initWebRTC(profile) {
+  if (window.JsSIP) {
+    setupJsSIPUA(profile)
+    return
+  }
+  const script = document.createElement('script')
+  script.src = '/assets/bridge_telephony/js/jssip.min.js'
+  script.onload = () => setupJsSIPUA(profile)
+  document.head.appendChild(script)
+}
+
+function setupJsSIPUA(profile) {
+  if (!window.JsSIP || !profile.extension || !profile.secret) return
+
+  if (ua.value) {
+    try { ua.value.stop() } catch (e) {}
+  }
+
+  try {
+    const socket = new window.JsSIP.WebSocketInterface(profile.wss_url)
+    const configuration = {
+      sockets: [socket],
+      uri: `sip:${profile.extension}@${profile.sip_domain}`,
+      password: profile.secret,
+      register: true,
+      session_timers: false,
+      pcConfig: {
+        iceServers: [{ urls: [profile.stun_server] }]
+      }
+    }
+
+    ua.value = new window.JsSIP.UA(configuration)
+
+    ua.value.on('registered', () => {
+      console.log(`[WebRTC] Extension ${profile.extension} successfully registered to FreePBX.`)
+      isRegistered.value = true
+      isWebRTCReady.value = true
+    })
+
+    ua.value.on('unregistered', () => {
+      isRegistered.value = false
+    })
+
+    ua.value.on('registrationFailed', (e) => {
+      console.warn(`[WebRTC] Registration failed for ${profile.extension}:`, e?.cause)
+      isRegistered.value = false
+    })
+
+    ua.value.on('newRTCSession', (data) => {
+      handleWebRTCSession(data.session)
+    })
+
+    ua.value.start()
+  } catch (e) {
+    console.error('[WebRTC] Initialization error:', e)
+  }
+}
+
+function attachAudioStream(stream) {
+  if (!stream || !remoteAudioRef.value) return
+  stream.getAudioTracks().forEach(t => { t.enabled = true })
+  remoteAudioRef.value.srcObject = stream
+  remoteAudioRef.value.muted = false
+  remoteAudioRef.value.volume = 1.0
+
+  const playPromise = remoteAudioRef.value.play()
+  if (playPromise !== undefined) {
+    playPromise.catch(err => {
+      console.warn('[WebRTC] Audio autoplay policy notice:', err.message)
+    })
+  }
+}
+
+function handleWebRTCSession(session) {
+  activeSession.value = session
+  isMuted.value = false
+
+  const isIncoming = session.direction === 'incoming'
+
+  if (isIncoming) {
+    const callerNum = session.remote_identity?.uri?.user || session.remote_identity?.display_name || 'Unknown'
+    phoneNumber.value = callerNum
+    callStatus.value = 'Incoming call...'
+    showCallPopup.value = true
+    showSmallCallPopup.value = false
+    fetchContactInfo(callerNum)
+    playRingtone()
+  }
+
+  // Bind ontrack immediately when peerconnection is created
+  session.on('peerconnection', (data) => {
+    const pc = data.peerconnection
+    pc.ontrack = (event) => {
+      let stream = null
+      if (event.streams && event.streams[0]) {
+        stream = event.streams[0]
+      } else {
+        stream = new MediaStream([event.track])
+      }
+      attachAudioStream(stream)
+    }
+  })
+
+  function checkFallbackAudio() {
+    if (session.connection && session.connection.getReceivers) {
+      const tracks = session.connection.getReceivers()
+        .map(r => r.track)
+        .filter(t => t && t.kind === 'audio')
+      if (tracks.length > 0) {
+        attachAudioStream(new MediaStream(tracks))
+      }
+    }
+  }
+
+  session.on('progress', () => {
+    if (session.direction === 'outgoing') {
+      callStatus.value = 'Ringing...'
+    }
+    checkFallbackAudio()
+  })
+
+  session.on('confirmed', () => {
+    stopRingtone()
+    callStatus.value = 'In progress'
+    if (counterUp.value) counterUp.value.start()
+    checkFallbackAudio()
+  })
+
+  session.on('ended', () => {
+    handleCallEnded()
+  })
+
+  session.on('failed', (e) => {
+    handleCallFailed(e?.cause)
+  })
+}
+
+function handleCallEnded() {
+  stopRingtone()
+  callStatus.value = 'Call ended'
+  if (counterUp.value) {
+    callDuration.value = counterUp.value.updatedTime || '00:00'
+    counterUp.value.stop()
+  }
+  activeSession.value = null
+  showKeypad.value = false
+}
+
+function handleCallFailed(cause) {
+  stopRingtone()
+  callStatus.value = cause ? `Call failed (${cause})` : 'Call ended'
+  if (counterUp.value) counterUp.value.stop()
+  activeSession.value = null
+  showKeypad.value = false
+}
+
 function acceptIncomingCall() {
   stopRingtone()
   stopPolling()
-  callStatus.value = 'In progress'
-  if (counterUp.value) counterUp.value.start()
-  toast.success(__('Call accepted. Connected on MicroSIP.'))
+  if (activeSession.value && activeSession.value.isInProgress()) {
+    activeSession.value.answer({
+      mediaConstraints: { audio: true, video: false },
+      rtcAnswerConstraints: { offerToReceiveAudio: true, offerToReceiveVideo: false }
+    })
+    callStatus.value = 'In progress'
+    if (counterUp.value) counterUp.value.start()
+    toast.success(__('Call connected in browser.'))
+  } else {
+    callStatus.value = 'In progress'
+    if (counterUp.value) counterUp.value.start()
+    toast.success(__('Call accepted.'))
+  }
 }
 
 function rejectIncomingCall() {
   stopRingtone()
+  if (activeSession.value) {
+    try {
+      activeSession.value.terminate({ status_code: 486, reason_phrase: 'Busy Here' })
+    } catch (e) {}
+  }
   closeCallPopup()
+}
+
+function hangUpCall() {
+  stopRingtone()
+  if (activeSession.value) {
+    try {
+      activeSession.value.terminate()
+    } catch (e) {}
+  }
+  handleCallEnded()
+}
+
+function toggleMute() {
+  if (!activeSession.value) return
+  if (isMuted.value) {
+    activeSession.value.unmute({ audio: true })
+    isMuted.value = false
+    toast.success(__('Microphone unmuted'))
+  } else {
+    activeSession.value.mute({ audio: true })
+    isMuted.value = true
+    toast.info(__('Microphone muted'))
+  }
+}
+
+function sendDTMF(digit) {
+  if (activeSession.value) {
+    activeSession.value.sendDTMF(digit)
+  }
 }
 
 async function makeOutgoingCall(number) {
@@ -544,6 +843,33 @@ async function makeOutgoingCall(number) {
 
   fetchContactInfo(number)
 
+  // 1. In-Browser WebRTC Calling (if registered and enabled)
+  if (telephonyProfile.value?.enable_webrtc && ua.value && isRegistered.value) {
+    try {
+      call('bridge_telephony.api.freepbx.create_webrtc_call_log', {
+        to_number: number,
+      }).then(res => {
+        if (res && res.call_log) callLogId.value = res.call_log
+      }).catch(() => {})
+
+      const options = {
+        mediaConstraints: { audio: true, video: false },
+        rtcOfferConstraints: { offerToReceiveAudio: true, offerToReceiveVideo: false },
+        pcConfig: {
+          iceServers: [{ urls: [telephonyProfile.value.stun_server] }]
+        }
+      }
+
+      const domain = telephonyProfile.value.sip_domain || 'webrtc.bridge.ng'
+      callStatus.value = __('Calling...')
+      ua.value.call(`sip:${number}@${domain}`, options)
+      return
+    } catch (err) {
+      console.warn('[WebRTC] In-browser call error, falling back to AMI:', err)
+    }
+  }
+
+  // 2. Legacy FreePBX AMI Originate (MicroSIP desktop)
   try {
     const res = await call('bridge_telephony.api.freepbx.make_call', {
       to_number: number,
@@ -599,7 +925,7 @@ async function fetchContactInfo(number) {
 
 function handleIncomingCall(data) {
   if (!data || !data.caller) return
-  console.log('FreePBX incoming call received:', data)
+  console.log('FreePBX incoming call notification received:', data)
 
   phoneNumber.value = data.caller
   callLogId.value = data.call_id || data.call_log || ''
@@ -634,8 +960,7 @@ function handleStatusUpdate(data) {
   }
 
   if (data.status === 'Completed') {
-    callStatus.value = 'Call ended'
-    if (counterUp.value) counterUp.value.stop()
+    handleCallEnded()
     const d = data.duration || 0
     const mins = Math.floor(d / 60).toString().padStart(2, '0')
     const secs = (d % 60).toString().padStart(2, '0')
@@ -690,6 +1015,8 @@ function setup() {
   if (isSetup) return
   isSetup = true
 
+  loadTelephonyProfile()
+
   if ($socket) {
     $socket.on('crm_incoming_call', handleIncomingCall)
     $socket.on('incoming_call', handleIncomingCall)
@@ -705,6 +1032,9 @@ onMounted(() => {
 onBeforeUnmount(() => {
   stopRingtone()
   stopPolling()
+  if (ua.value) {
+    try { ua.value.stop() } catch (e) {}
+  }
   if ($socket) {
     $socket.off('crm_incoming_call', handleIncomingCall)
     $socket.off('incoming_call', handleIncomingCall)
@@ -738,6 +1068,7 @@ function closeCallPopup() {
   showSmallCallPopup.value = false
   showNote.value = false
   showTask.value = false
+  showKeypad.value = false
   dirty.value = false
   callStatus.value = ''
   if (counterUp.value) counterUp.value.stop()
@@ -751,23 +1082,20 @@ function closeCallPopup() {
     status: 'Backlog',
     priority: 'Low',
   }
-  startPolling()
 }
 
-function save() {
-  if (showNote.value && note.value.content && note.value.content !== '<p></p>') {
+function update() {
+  if (showNote.value) {
     createUpdateNote()
-  }
-  if (showTask.value && task.value.title) {
+  } else if (showTask.value) {
     createUpdateTask()
   }
 }
 
-function update() {
-  if (showNote.value && note.value.content) {
+function save() {
+  if (showNote.value) {
     createUpdateNote()
-  }
-  if (showTask.value && task.value.title) {
+  } else if (showTask.value) {
     createUpdateTask()
   }
 }
@@ -775,18 +1103,15 @@ function update() {
 async function ensureCallLog() {
   if (callLogId.value) return callLogId.value
   try {
-    const res = await call('bridge_telephony.api.freepbx.get_or_create_call_log', {
-      caller: phoneNumber.value,
-      call_type: callStatus.value === 'Incoming call...' ? 'Incoming' : 'Outgoing',
-      reference_doctype: contact.value.lead ? 'CRM Lead' : contact.value.deal ? 'CRM Deal' : (contact.value.name ? 'Contact' : null),
-      reference_name: contact.value.lead || contact.value.deal || contact.value.name || null,
+    const res = await call('bridge_telephony.api.freepbx.create_webrtc_call_log', {
+      to_number: phoneNumber.value || 'Unknown',
     })
-    if (res && (res.call_log || res.call_id)) {
-      callLogId.value = res.call_log || res.call_id
-      return callLogId.value
+    if (res && res.call_log) {
+      callLogId.value = res.call_log
+      return res.call_log
     }
   } catch (e) {
-    console.error('Failed to get or create call log:', e)
+    console.warn('Failed to auto-create call log for note:', e)
   }
   return null
 }
@@ -866,7 +1191,7 @@ defineExpose({
 }
 
 .pulse-container::before {
-  content: '';
+  content: "";
   position: absolute;
   border: 2px solid #22c55e;
   width: calc(100% + 20px);
@@ -876,7 +1201,7 @@ defineExpose({
 }
 
 .pulse-container::after {
-  content: '';
+  content: "";
   position: absolute;
   border: 2px solid #22c55e;
   width: calc(100% + 20px);

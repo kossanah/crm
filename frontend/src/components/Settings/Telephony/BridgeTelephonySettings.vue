@@ -162,6 +162,71 @@
             </div>
           </div>
 
+          <!-- WebRTC & In-Browser Calling Section -->
+          <div
+            v-if="bridgeTelephony.doc.provider === 'FreePBX' || !bridgeTelephony.doc.provider"
+            class="space-y-4 pt-2 border-t border-outline-elevation-2"
+          >
+            <div class="flex items-center justify-between pb-2 border-b border-outline-elevation-2">
+              <div class="flex flex-col">
+                <span class="text-base-medium text-ink-gray-8">
+                  {{ __('WebRTC & In-Browser Phone (Cloud Contact Center)') }}
+                </span>
+                <span class="text-p-sm text-ink-gray-5">
+                  {{ __('Enable agents to make and receive calls directly inside Frappe CRM and the PWA without MicroSIP') }}
+                </span>
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <FormControl
+                v-model="bridgeTelephony.doc.enable_webrtc"
+                type="checkbox"
+                :label="__('Enable WebRTC In-Browser Calling')"
+                :description="__('Agents use browser microphone/speakers for calls based on their CRM Telephony Agent extension')"
+              />
+            </div>
+
+            <div v-if="bridgeTelephony.doc.enable_webrtc" class="space-y-4 pt-2">
+              <div class="grid grid-cols-2 gap-4">
+                <FormControl
+                  v-model="bridgeTelephony.doc.calling_mode"
+                  :label="__('Default Calling Mode')"
+                  type="select"
+                  :options="[
+                    { label: __('WebRTC (In-Browser Phone)'), value: 'WebRTC (In-Browser Phone)' },
+                    { label: __('AMI Originate (MicroSIP Desktop)'), value: 'AMI Originate (MicroSIP Desktop)' },
+                  ]"
+                  :description="__('Select default behavior when clicking Make Call in CRM')"
+                />
+                <FormControl
+                  v-model="bridgeTelephony.doc.webrtc_wss_url"
+                  :label="__('Asterisk WSS URI')"
+                  type="text"
+                  placeholder="wss://webrtc.bridge.ng:8089/ws"
+                  :description="__('WebSocket Secure URL for Asterisk WSS server')"
+                />
+              </div>
+
+              <div class="grid grid-cols-2 gap-4">
+                <FormControl
+                  v-model="bridgeTelephony.doc.webrtc_sip_domain"
+                  :label="__('WebRTC SIP Domain')"
+                  type="text"
+                  placeholder="webrtc.bridge.ng"
+                  :description="__('SIP realm domain configured in Asterisk PJSIP')"
+                />
+                <FormControl
+                  v-model="bridgeTelephony.doc.webrtc_stun_server"
+                  :label="__('STUN Server URI')"
+                  type="text"
+                  placeholder="stun:stun.l.google.com:19302"
+                  :description="__('STUN server for ICE candidate NAT traversal')"
+                />
+              </div>
+            </div>
+          </div>
+
           <!-- Africa's Talking Configuration Section -->
           <div
             v-else-if="bridgeTelephony.doc.provider === 'Africa\'s Talking'"
