@@ -16,11 +16,13 @@ export default defineConfig(async ({ mode }) => {
         devOptions: {
           enabled: true,
         },
+        scope: '/crm/',
         manifest: {
           display: 'standalone',
           name: 'Frappe CRM',
           short_name: 'Frappe CRM',
           start_url: '/crm',
+          scope: '/crm',
           description:
             'Modern & 100% Open-source CRM tool to supercharge your sales operations',
           icons: [
