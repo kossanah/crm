@@ -16,15 +16,15 @@ export default defineConfig(async ({ mode }) => {
         devOptions: {
           enabled: true,
         },
-        scope: '/crm/',
+        scope: '/crm',
         manifest: {
           display: 'standalone',
-          name: 'Frappe CRM',
-          short_name: 'Frappe CRM',
+          name: 'Bridge CRM',
+          short_name: 'Bridge CRM',
           start_url: '/crm',
           scope: '/crm',
           description:
-            'Modern & 100% Open-source CRM tool to supercharge your sales operations',
+            'Bridge CRM - Modern CRM tool to supercharge your sales operations',
           icons: [
             {
               src: '/assets/crm/manifest/manifest-icon-192.maskable.png',

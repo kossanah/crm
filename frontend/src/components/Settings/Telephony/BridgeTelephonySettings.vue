@@ -173,7 +173,7 @@
                   {{ __('WebRTC & In-Browser Phone (Cloud Contact Center)') }}
                 </span>
                 <span class="text-p-sm text-ink-gray-5">
-                  {{ __('Enable agents to make and receive calls directly inside Frappe CRM and the PWA without MicroSIP') }}
+                  {{ __('Enable agents to make and receive calls directly inside Bridge CRM and the PWA without MicroSIP') }}
                 </span>
               </div>
             </div>
@@ -301,7 +301,7 @@
             <span class="text-p-base text-ink-gray-6">
               {{
                 __(
-                  'Enable Bridge Telephony to connect FreePBX / Africa\'s Talking and make/receive calls directly from Frappe CRM.',
+                  'Enable Bridge Telephony to connect FreePBX / Africa\'s Talking and make/receive calls directly from Bridge CRM.',
                 )
               }}
             </span>
