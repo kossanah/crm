@@ -1053,20 +1053,26 @@ function handleStatusUpdate(data) {
     callLogId.value = data.call_id
   }
 
-  if (data.status === 'Completed') {
+  if (data.status === 'Completed' || data.status === 'Failed') {
     if (!isCallEndedHandled) {
       handleCallEnded()
     }
-    const d = data.duration || 0
-    const mins = Math.floor(d / 60).toString().padStart(2, '0')
-    const secs = (d % 60).toString().padStart(2, '0')
-    callDuration.value = `${mins}:${secs}`
+    if (data.status === 'Failed') {
+      callStatus.value = 'Failed'
+    } else {
+      const d = data.duration || 0
+      const mins = Math.floor(d / 60).toString().padStart(2, '0')
+      const secs = (d % 60).toString().padStart(2, '0')
+      callDuration.value = `${mins}:${secs}`
+    }
   } else if (data.status === 'No Answer') {
     callStatus.value = 'No answer'
     if (counterUp.value) counterUp.value.stop()
+    if (!isCallEndedHandled) handleCallEnded()
   } else if (data.status === 'Busy') {
     callStatus.value = 'Busy'
     if (counterUp.value) counterUp.value.stop()
+    if (!isCallEndedHandled) handleCallEnded()
   } else if (data.status === 'In progress' || data.status === 'Connected') {
     callStatus.value = 'In progress'
     if (counterUp.value) counterUp.value.start()
