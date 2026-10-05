@@ -1078,6 +1078,8 @@ let pollTimer = null
 
 async function pollActiveIncomingCall() {
   if (
+    !telephonyProfile.value?.enabled ||
+    !telephonyProfile.value?.extension ||
     showCallPopup.value ||
     showSmallCallPopup.value ||
     callStatus.value === 'In progress' ||
