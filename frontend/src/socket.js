@@ -2,10 +2,16 @@ import { io } from 'socket.io-client'
 import { getCachedListResource, getCachedResource } from 'frappe-ui'
 
 export function initSocket() {
-  let socketio_port = window.socketio_port || 9000
   let host = window.location.hostname
   let siteName = window.site_name
-  let port = window.socketio_port ? `:${window.socketio_port}` : ''
+  let port = ''
+  if (
+    window.location.protocol !== 'https:' &&
+    (window.dev_server || ['localhost', '127.0.0.1'].includes(host) || window.location.port)
+  ) {
+    let socketio_port = window.socketio_port || 9000
+    port = `:${socketio_port}`
+  }
   let protocol = window.location.protocol === 'https:' ? 'https' : 'http'
   let url = `${protocol}://${host}${port}/${siteName}`
 

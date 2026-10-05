@@ -33,12 +33,22 @@ def get_context_for_dev():
 
 
 def get_boot():
+	socketio_port = None
+	try:
+		is_ssl = bool(frappe.request and frappe.request.scheme == "https")
+	except Exception:
+		is_ssl = False
+
+	# Only expose direct socketio port in local dev (HTTP / developer_mode)
+	if not is_ssl and (frappe.conf.developer_mode or getattr(frappe.local, "dev_server", False)):
+		socketio_port = frappe.conf.socketio_port or 9000
+
 	return frappe._dict(
 		{
 			"frappe_version": frappe.__version__,
 			"default_route": get_default_route(),
 			"site_name": frappe.local.site,
-			"socketio_port": frappe.conf.socketio_port,
+			"socketio_port": socketio_port,
 			"read_only_mode": frappe.flags.read_only,
 			"csrf_token": frappe.sessions.get_csrf_token(),
 			"setup_complete": cint(frappe.get_system_settings("setup_complete")),
