@@ -5,7 +5,10 @@ from frappe import _
 from frappe.custom.doctype.property_setter.property_setter import make_property_setter
 from frappe.desk.form.assign_to import set_status
 from frappe.model import no_value_fields
-from frappe.model.delete_doc import get_dynamic_linked_docs, get_linked_docs
+try:
+	from frappe.model.delete_doc import get_dynamic_linked_docs, get_linked_docs
+except ImportError:
+	from crm.utils import get_dynamic_linked_docs, get_linked_docs
 from frappe.model.document import get_controller
 from frappe.utils import make_filter_tuple
 from pypika import Criterion
