@@ -435,3 +435,22 @@ def on_communication_update(doc: Communication, method: str | None = None):
 		values,
 		update_modified=False,
 	)
+
+
+def ensure_telemetry_boot_config():
+	"""Ensure frappe.utils.telemetry.pulse.client.boot_config exists on Frappe versions (e.g. v15) that lack it."""
+	try:
+		import frappe.utils.telemetry.pulse.client as pulse_client
+
+		if not hasattr(pulse_client, "boot_config"):
+			@frappe.whitelist(allow_guest=True)
+			def boot_config() -> dict:
+				return {"enabled": False}
+
+			pulse_client.boot_config = boot_config
+	except Exception:
+		pass
+
+
+ensure_telemetry_boot_config()
+

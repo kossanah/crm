@@ -248,7 +248,7 @@ scheduler_events = {
 
 # Request Events
 # ----------------
-# before_request = ["crm.utils.before_request"]
+before_request = ["crm.utils.ensure_telemetry_boot_config"]
 # after_request = ["crm.utils.after_request"]
 
 # Job Events
